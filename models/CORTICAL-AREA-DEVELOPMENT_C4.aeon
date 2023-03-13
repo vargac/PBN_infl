@@ -1,0 +1,22 @@
+#position:v_Sp8:115.74351597568089,149.5058721081339
+v_Emx2 -| v_Sp8
+v_Fgf8 -> v_Sp8
+#position:v_Emx2:25.43843815668133,210.72310770213906
+$v_Emx2:(v_Coup_fti & !((v_Fgf8 | v_Sp8) | v_Pax6))
+v_Sp8 -| v_Emx2
+v_Coup_fti -> v_Emx2
+v_Pax6 -| v_Emx2
+v_Fgf8 -| v_Emx2
+#position:v_Coup_fti:129.89118304490674,52.5
+v_Sp8 -| v_Coup_fti
+v_Fgf8 -| v_Coup_fti
+#position:v_Pax6:130.32677260993626,273.8868257365501
+$v_Pax6:(v_Sp8 & !(v_Emx2 | v_Coup_fti))
+v_Sp8 -> v_Pax6
+v_Coup_fti -| v_Pax6
+v_Emx2 -| v_Pax6
+#position:v_Fgf8:22.5,54.83860078038879
+$v_Fgf8:((v_Fgf8 & v_Sp8) & !v_Emx2)
+v_Sp8 -> v_Fgf8
+v_Emx2 -| v_Fgf8
+v_Fgf8 -> v_Fgf8
