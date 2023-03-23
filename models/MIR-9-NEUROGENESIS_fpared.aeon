@@ -1,0 +1,17 @@
+#position:v_her6:83.5067806927891,38.5
+v_miR_9 -| v_her6
+v_Neural_Precursor -| v_her6
+#position:v_miR_9:112.20931620990314,190.87400539264377
+v_her6 -| v_miR_9
+v_Neural_Precursor -| v_miR_9
+#position:v_Neural_Precursor:22.5,272.9372844299932
+v_elavl3_HuC -> v_Neural_Precursor
+#position:v_zic5:111.2680243682027,351.2332875451851
+v_miR_9 -| v_zic5
+v_Neural_Precursor -| v_zic5
+#position:v_elavl3_HuC:202.22878248140904,344.7401601164994
+v_miR_9 -| v_elavl3_HuC
+v_Progenitor -| v_elavl3_HuC
+#position:v_Progenitor:203.30156138145503,114.26895559623
+v_her6 -> v_Progenitor
+v_zic5 -> v_Progenitor
