@@ -6,3 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+biodivine-lib-bdd = "0.4.2"
+biodivine-lib-param-bn = "0.4.4"
