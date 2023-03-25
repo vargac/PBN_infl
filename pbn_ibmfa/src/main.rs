@@ -9,14 +9,27 @@ use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use biodivine_lib_bdd::{Bdd, BddVariable, BddPartialValuation};
 
 mod _impl_regulation_constraint;
+mod _impl_ibmfa_computations;
 
 use crate::_impl_regulation_constraint::apply_regulation_constraints;
+use crate::_impl_ibmfa_computations::*;
 
 
-#[derive(Copy, Clone, Debug)]
-struct Fixing {
-    var_i: usize,
-    value: bool,
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+enum FixingItem {
+    Variable(usize),  // index of the Variable in BooleanNetwork
+    Parameter(BddVariable), // BddVariable in SymbolicContext
+}
+
+impl FixingItem {
+    fn to_str(&self, context: &SymbolicContext) -> String {
+        match self {
+            FixingItem::Variable(var_i) => bdd_var_to_str(
+                &context.get_state_variable(VariableId::from_index(*var_i)),
+                &context),
+            FixingItem::Parameter(bdd_var) => bdd_var_to_str(bdd_var, &context),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -39,94 +52,64 @@ impl ParedUpdateFunction {
             parametrizations,
         }
     }
+
+    fn restricted_parametrizations(&self, restriction: &Bdd) -> Bdd {
+        let support_set = self.function.support_set();
+        let mut restriction = restriction.clone();
+        for bdd_var in restriction.support_set() {
+            if !support_set.contains(&bdd_var) {
+                restriction = restriction.var_project(bdd_var);
+            }
+        }
+        self.parametrizations.and(&restriction)
+    }
 }
 
 type VarIndex = HashMap<BddVariable, usize>;
 
-fn clause_probability(
-    clause: &BddPartialValuation,
-    probs: &[f32],
-    var_index: &VarIndex)
--> f32 {
-    clause.to_values().iter()
-        .map(|&(var, val)| {
-            let prob_one = probs[var_index[&var]];
-            if val { prob_one } else { 1.0 - prob_one }
-        })
-        .product()
+struct BNetwork {
+    context: SymbolicContext,
+    unit_bdd: Bdd,
+    pupdate_functions: Vec<ParedUpdateFunction>,
+    var_index: VarIndex,
 }
 
-fn ibmfa_step(
-    pupdate_functions: &[ParedUpdateFunction],
-    probs: &[f32],
-    init_probs: &[f32],
-    var_index: &HashMap<BddVariable, usize>)
--> Vec<f32> {
-    pupdate_functions.iter()
-        .enumerate()
-        .map(|(i, pupdate_function)|
-            if init_probs[i] == 0.0 || init_probs[i] == 1.0 {
-                init_probs[i]
-            } else {
-                let mut pnumber = 0;
-                pupdate_function.parametrizations
-                    .sat_clauses()
-                    .map(|parametrization| {
-                        pnumber += 1;
-                        pupdate_function.function
-                            .restrict(&parametrization.to_values())
-                            .sat_clauses()
-                            .map(|clause|
-                                clause_probability(&clause, &probs, &var_index))
-                            .sum::<f32>()
-                    })
- // TODO May be just count the number of parametrizations and iterate over all?
-                    .sum::<f32>() / pnumber as f32
+impl BNetwork {
+    fn new(bn: &BooleanNetwork) -> BNetwork {
+        let context = SymbolicContext::new(&bn).unwrap();
+
+        let mut var_index = HashMap::new();
+        for var_id in bn.variables() {
+            var_index
+                .insert(context.get_state_variable(var_id), var_id.to_index());
+        }
+
+        let update_functions: Vec<Bdd> = bn
+            .variables()
+            .map(|variable| {
+                let regulators = bn.regulators(variable);
+                bn.get_update_function(variable)
+                    .as_ref()
+                    .map(|fun| context.mk_fn_update_true(fun))
+                    .unwrap_or_else(|| context.mk_implicit_function_is_true(
+                            variable, &regulators)
+                    )
             })
-        .collect()
-}
+            .collect();
 
-fn ibmfa(pupdate_functions: &[ParedUpdateFunction], probs: &mut Vec<Vec<f32>>,
-         var_index: &HashMap<BddVariable, usize>, verbose: bool) {
-    for i in 1..probs.len() {
-        probs[i] = ibmfa_step(&pupdate_functions, &probs[i - 1], &probs[0],
-                              var_index);
-        if verbose {
-            println!("{:?}", probs[i]);
-        }
+        let unit_bdd = apply_regulation_constraints(context.mk_constant(true),
+                                                    &bn, &context).unwrap();
+
+        let pupdate_functions = update_functions.iter()
+            .map(|fun| ParedUpdateFunction::new(fun, &unit_bdd))
+            .collect::<Vec<_>>();
+
+        BNetwork { context, unit_bdd, pupdate_functions, var_index }
     }
 }
 
-fn entropy(probs: &[f32]) -> f32 {
-    probs.iter()
-        .map(|p| if *p == 0.0 || *p == 1.0 { 0.0 }
-                 else { - p * p.log2() - (1.0 - p) * (1.0 - p).log2() })
-        .sum::<f32>() / probs.len() as f32
-}
-
-/* early_stop is not a good idea. May be rather simulate until the values
- * converge, up to max iteration number. */
-fn ibmfa_entropy(
-    pupdate_functions: &[ParedUpdateFunction],
-    init_probs: &[f32],
-    var_index: &HashMap<BddVariable, usize>,
-    iterations: usize,
-    early_stop: bool,
-    verbose: bool)
--> f32 {
-    let mut probs: Vec<f32> = init_probs.into();
-    let mut ent = 0.0;
-    for _ in 0..iterations {
-        probs = ibmfa_step(&pupdate_functions, &probs, init_probs, var_index);
-        if verbose {
-            println!("{:?}", probs);
-        }
-        ent = entropy(&probs);
-        if ent == 0.0 && early_stop {
-            break;
-        }
-    }
-    ent
+fn bdd_var_to_str(bdd_var: &BddVariable, context: &SymbolicContext) -> String {
+    context.bdd_variable_set().name_of(*bdd_var)
 }
 
 fn valuation_to_str(valuation: &BddPartialValuation, context: &SymbolicContext)
@@ -134,8 +117,8 @@ fn valuation_to_str(valuation: &BddPartialValuation, context: &SymbolicContext)
     format!("{:?}", valuation
         .to_values()
         .iter()
-        .map(|&(bdd_var, val)| format!("{}={}",
-                context.bdd_variable_set().name_of(bdd_var), val))
+        .map(|&(bdd_var, val)|
+            format!("{}={}", bdd_var_to_str(&bdd_var, &context), val))
         .collect::<Vec<_>>()
     )
 }
@@ -158,56 +141,23 @@ fn main() {
     );
     println!();
 
-    /*
-    model.set_update_function(VariableId::from_index(4),
-        FnUpdate::mk_var(VariableId::from_index(1))
-            .negation()
-            .or(FnUpdate::mk_var(VariableId::from_index(2)))
-            .into()).unwrap();
-    */
+    let bnetwork = BNetwork::new(&model);
 
+    println!("{:?}", bnetwork.var_index);
+    println!();
 
-    let context = SymbolicContext::new(&model).unwrap();
-
-    let mut bdd_var_index: VarIndex = HashMap::new();
-    for var_id in model.variables() {
-        bdd_var_index
-            .insert(context.get_state_variable(var_id), var_id.to_index());
-    }
-    println!("{:?}", bdd_var_index);
-
-    let update_functions: Vec<Bdd> = model
-        .variables()
-        .map(|variable| {
-            let regulators = model.regulators(variable);
-            model
-                .get_update_function(variable)
-                .as_ref()
-                .map(|fun| context.mk_fn_update_true(fun))
-                .unwrap_or_else(||
-                    context.mk_implicit_function_is_true(variable, &regulators)
-                )
-        })
-        .collect();
-
-    let unit_bdd = apply_regulation_constraints(context.mk_constant(true),
-                                                &model, &context).unwrap();
-
-    let pared_update_functions = update_functions.iter()
-        .map(|fun| ParedUpdateFunction::new(fun, &unit_bdd))
-        .collect::<Vec<_>>();
-
-    for var_id in model.variables() {
-        let pupdate_function = &pared_update_functions[var_id.to_index()];
+    for pupdate_function in &bnetwork.pupdate_functions {
         for parametrization in pupdate_function.parametrizations.sat_clauses() {
-            println!("{}", valuation_to_str(&parametrization, &context));
+            println!("{}",
+                valuation_to_str(&parametrization, &bnetwork.context));
             let f = pupdate_function.function
                 .restrict(&parametrization.to_values());
             println!("\t{}",
-                f.to_boolean_expression(context.bdd_variable_set()));
+                f.to_boolean_expression(bnetwork.context.bdd_variable_set()));
 
             for valuation in f.sat_clauses() {
-                println!("\t{}", valuation_to_str(&valuation, &context));
+                println!("\t{}",
+                    valuation_to_str(&valuation, &bnetwork.context));
             }
         }
         println!();
@@ -215,42 +165,60 @@ fn main() {
 
 
     let iterations = 10;
-    let mut probs = vec![vec![0 as f32; model.num_vars()]; iterations + 1];
-    probs[0] = vec![0.5; model.num_vars()];
-//    probs[0][0] = 0.0;
+    let mut fixings = HashMap::new();
 
     println!("Entropy: {}",
-        ibmfa_entropy(&pared_update_functions, &probs[0], &bdd_var_index,
-                      iterations, true, true));
+        ibmfa_entropy(&bnetwork, &fixings, iterations, true, true));
 
     let mut available_fixings = Vec::new();
     for var_i in 0..model.num_vars() {
-        available_fixings.push(Fixing { var_i, value: false });
-        available_fixings.push(Fixing { var_i, value: true });
+        available_fixings.push((FixingItem::Variable(var_i), 0.0));
+        available_fixings.push((FixingItem::Variable(var_i), 1.0));
+    }
+    for bdd_var in bnetwork.context.parameter_variables() {
+        for val in [false, true] {
+            // TODO we don't want is_true() neither, but  it has to be checked
+            // on the variable level.
+            // TODO as well, update it after each fixing of any parameter var,
+            // as it could prohibit some other parameter var fixing
+            if !bnetwork.unit_bdd.var_select(*bdd_var, val).is_false() {
+                available_fixings.push((FixingItem::Parameter(bdd_var.clone()),
+                                        val as i32 as f32));
+            }
+        }
     }
 
-    let mut driver_set = Vec::new();
+    let mut restrictions = bnetwork.context.mk_constant(true);
+    let mut fixings = HashMap::new();
+
     while available_fixings.len() > 0 {
         println!("======= {} ========", available_fixings.len());
         let (min_entropy_index, min_entropy) = available_fixings
             .iter()
-            .map(|&fixing| {
-                let mut init_probs = vec![0.5; model.num_vars()];
-                init_probs[fixing.var_i] = if fixing.value { 1.0 } else { 0.0 };
-                ibmfa_entropy(&pared_update_functions, &init_probs,
-                              &bdd_var_index, iterations, false, false)
+            .map(|&(fixing_item, value)| {
+                println!("Try fix {fixing_item:?} ({}) to {value}",
+                    fixing_item.to_str(&bnetwork.context));
+                fixings.insert(fixing_item, value);
+                let ent = ibmfa_entropy(
+                    &bnetwork, &fixings, iterations, false, false);
+                println!("{ent}");
+                fixings.remove(&fixing_item);
+                ent
             })
             .enumerate()
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .unwrap();
-        let fixing = available_fixings.remove(min_entropy_index);
+        let (fixing_item, value) = available_fixings.remove(min_entropy_index);
         available_fixings.remove(min_entropy_index / 2 * 2);
-        println!("{fixing:?}, entropy: {min_entropy}");
-        driver_set.push(fixing);
+
+        println!("Fixing {fixing_item:?} ({}) = {value}, entropy:{min_entropy}",
+            fixing_item.to_str(&bnetwork.context));
+        fixings.insert(fixing_item, value);
+
         if min_entropy == 0.0 {
             break;
         }
     }
 
-    println!("{:?}", driver_set);
+    println!("{:?}", fixings);
 }
