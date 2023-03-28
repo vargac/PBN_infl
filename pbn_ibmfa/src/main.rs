@@ -5,7 +5,8 @@ use std::{env, process, fs};
 use std::collections::HashMap;
 
 use biodivine_lib_param_bn::{BooleanNetwork, VariableId, FnUpdate};
-use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
+use biodivine_lib_param_bn::symbolic_async_graph::
+    {SymbolicContext, GraphColoredVertices};
 use biodivine_lib_bdd::{Bdd, BddVariable, BddPartialValuation};
 
 mod _impl_regulation_constraint;
@@ -71,12 +72,18 @@ struct BNetwork {
     context: SymbolicContext,
     unit_bdd: Bdd,
     pupdate_functions: Vec<ParedUpdateFunction>,
+    total_update_function: Bdd,
+    extra_state_var_equivalence: Bdd,
     var_index: VarIndex,
 }
 
 impl BNetwork {
     fn new(bn: &BooleanNetwork) -> BNetwork {
-        let context = SymbolicContext::new(&bn).unwrap();
+        let extra_vars = bn.variables()
+            .map(|var_id| (var_id, 1))
+            .collect::<HashMap<_, _>>();
+        let context = SymbolicContext::with_extra_state_variables(
+            &bn, &extra_vars).unwrap();
 
         let mut var_index = HashMap::new();
         for var_id in bn.variables() {
@@ -97,6 +104,21 @@ impl BNetwork {
             })
             .collect();
 
+        // used to store the next network state to the extra variables
+        let total_update_function = update_functions.iter()
+            .zip(bn.variables())
+            .map(|(bdd, var_id)| context
+                .mk_extra_state_variable_is_true(var_id, 0)
+                .iff(&bdd))
+            .fold(context.mk_constant(true), |acc, bdd| acc.and(&bdd));
+
+        // used to copy a state from the extra varaibles to the state variables
+        let extra_state_var_equivalence = bn.variables()
+            .map(|var_id| context
+                .mk_extra_state_variable_is_true(var_id, 0)
+                .iff(&context.mk_state_variable_is_true(var_id)))
+            .fold(context.mk_constant(true), |acc, bdd| acc.and(&bdd));
+
         let unit_bdd = apply_regulation_constraints(context.mk_constant(true),
                                                     &bn, &context).unwrap();
 
@@ -104,7 +126,50 @@ impl BNetwork {
             .map(|fun| ParedUpdateFunction::new(fun, &unit_bdd))
             .collect::<Vec<_>>();
 
-        BNetwork { context, unit_bdd, pupdate_functions, var_index }
+        BNetwork {
+            context,
+            unit_bdd,
+            pupdate_functions,
+            total_update_function,
+            extra_state_var_equivalence,
+            var_index
+        }
+    }
+
+    fn post_synch(&self, initial: &GraphColoredVertices)
+-> GraphColoredVertices {
+        let output = initial.as_bdd() // (prev, ?)
+            .and(&self.total_update_function) // (prev, next)
+            .project(self.context.state_variables()) // (?, next)
+            .and(&self.extra_state_var_equivalence) // (next, next)
+            .project(self.context.all_extra_state_variables()); // (next, ?)
+        GraphColoredVertices::new(output, &self.context)
+    }
+
+    fn pre_synch(&self, initial: &GraphColoredVertices)
+-> GraphColoredVertices {
+        let output = initial.as_bdd() // (next, ?)
+            .and(&self.extra_state_var_equivalence) // (next, next)
+            .project(self.context.state_variables()) // (?, next)
+            .and(&self.total_update_function) // (prev, next)
+            .project(self.context.all_extra_state_variables()); // (prev, ?)
+        GraphColoredVertices::new(output, &self.context)
+    }
+
+    fn unit_colored_vertices(&self) -> GraphColoredVertices {
+        GraphColoredVertices::new(self.unit_bdd.clone(), &self.context)
+    }
+
+    fn fix_network_variable(&self, variable: VariableId, value: bool)
+-> GraphColoredVertices {
+        let bdd_var = self.context.get_state_variable(variable);
+        GraphColoredVertices::new(
+            self.unit_bdd.var_select(bdd_var, value), &self.context)
+    }
+
+    fn bdd_to_str(&self, bdd: &Bdd) -> String {
+        format!("{}",
+            bdd.to_boolean_expression(self.context.bdd_variable_set()))
     }
 }
 
@@ -122,6 +187,7 @@ fn valuation_to_str(valuation: &BddPartialValuation, context: &SymbolicContext)
         .collect::<Vec<_>>()
     )
 }
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -178,7 +244,7 @@ fn main() {
     for bdd_var in bnetwork.context.parameter_variables() {
         for val in [false, true] {
             // TODO we don't want is_true() neither, but  it has to be checked
-            // on the variable level.
+            // on the dependent variable level.
             // TODO as well, update it after each fixing of any parameter var,
             // as it could prohibit some other parameter var fixing
             if !bnetwork.unit_bdd.var_select(*bdd_var, val).is_false() {
@@ -221,4 +287,16 @@ fn main() {
     }
 
     println!("{:?}", fixings);
+    println!();
+
+    let init_state = vec![false, false, false, false, true, false];
+    let start = init_state.iter()
+        .enumerate()
+        .fold(bnetwork.unit_colored_vertices(),
+            |acc, (i, &val)|
+                acc.fix_network_variable(VariableId::from_index(i), val));
+
+    println!("{}", bnetwork.bdd_to_str(bnetwork.pre_synch(&start).as_bdd()));
+    println!("{}", bnetwork.bdd_to_str(start.as_bdd()));
+    println!("{}", bnetwork.bdd_to_str(bnetwork.post_synch(&start).as_bdd()));
 }

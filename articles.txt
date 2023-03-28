@@ -1,0 +1,8 @@
+Exploring attractor bifurcations in Boolean networks
+https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-022-04708-9
+
+Synchronous versus asynchronous modeling of gene regulatory networks
+https://academic.oup.com/bioinformatics/article/24/17/1917/262570?login=true
+
+Improving BDD-based Attractor Detection for Synchronous Boolean Networks
+https://dl.acm.org/doi/pdf/10.1145/2875913.2875925

@@ -69,6 +69,7 @@ def IBMFA(primes, sim_length, semantics):
 
 
 primes = file_exchange.bnet2primes(sys.stdin.read())
+print(primes.keys())
 state_transition_graphs.create_stg_image(primes, 'synchronous', 'synchronous.pdf')
 state_transition_graphs.create_stg_image(primes, 'asynchronous', 'asynchronous.pdf')
 exit(0)
