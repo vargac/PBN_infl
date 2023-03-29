@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use biodivine_lib_param_bn::{BooleanNetwork, VariableId, FnUpdate};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::
-    {SymbolicContext, GraphColoredVertices};
+    {SymbolicContext, GraphColoredVertices, GraphColors, GraphVertices};
 use biodivine_lib_bdd::{Bdd, BddVariable, BddPartialValuation};
 
 mod _impl_regulation_constraint;
@@ -226,6 +226,14 @@ impl BNetwork {
         format!("{}",
             bdd.to_boolean_expression(self.context.bdd_variable_set()))
     }
+
+    fn attr_to_str(&self, attr: &GraphVertices) -> String {
+        format!("{{ {} }}", attr
+            .materialize()
+            .iter()
+            .map(|bit_vector| format!("{} ", bit_vector))
+            .collect::<String>())
+    }
 }
 
 fn bdd_var_to_str(bdd_var: &BddVariable, context: &SymbolicContext) -> String {
@@ -357,7 +365,42 @@ fn main() {
     println!();
 
     println!("Attractors:");
-    for (i, attr) in bnetwork.attractors().iter().enumerate() {
-        println!("{i}: {}", bnetwork.bdd_to_str(attr.as_bdd()));
+    let attrs = bnetwork.attractors();
+    let mut attrs_map = HashMap::new();
+
+    for (i, attr) in attrs.iter().enumerate() {
+        let mut attr = attr.clone();
+        while !attr.is_empty() {
+            let mut wanted_vertices = attr
+                .intersect_colors(&attr.colors().pick_singleton())
+                .vertices();
+
+            let one_attr_vertices = wanted_vertices.clone();
+
+            let other_vertices = attr.vertices().minus(&one_attr_vertices);
+            let mut one_attr_colors = attr
+                .colors()
+                .minus(&attr.intersect_vertices(&other_vertices).colors());
+
+            while !wanted_vertices.is_empty() { // TODO just iterate over them
+                let one_attr_vertex = wanted_vertices.pick_singleton();
+                one_attr_colors = one_attr_colors.intersect(
+                    &attr.intersect_vertices(&wanted_vertices).colors());
+                wanted_vertices = wanted_vertices.minus(&one_attr_vertex);
+            }
+
+            attr = attr.minus_colors(&one_attr_colors);
+
+            attrs_map
+                .entry(one_attr_vertices)
+                .and_modify(|colors: &mut GraphColors|
+                    *colors = colors.union(&one_attr_colors))
+                .or_insert(one_attr_colors);
+        }
+    }
+
+    println!("{}", attrs_map.len());
+    for (i, attr) in attrs_map.keys().enumerate() {
+        println!("{i}: {}", bnetwork.attr_to_str(attr))
     }
 }
