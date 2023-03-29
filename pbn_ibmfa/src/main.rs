@@ -5,6 +5,7 @@ use std::{env, process, fs};
 use std::collections::HashMap;
 
 use biodivine_lib_param_bn::{BooleanNetwork, VariableId, FnUpdate};
+use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::
     {SymbolicContext, GraphColoredVertices};
 use biodivine_lib_bdd::{Bdd, BddVariable, BddPartialValuation};
@@ -137,7 +138,7 @@ impl BNetwork {
     }
 
     fn post_synch(&self, initial: &GraphColoredVertices)
--> GraphColoredVertices {
+    -> GraphColoredVertices {
         let output = initial.as_bdd() // (prev, ?)
             .and(&self.total_update_function) // (prev, next)
             .project(self.context.state_variables()) // (?, next)
@@ -147,7 +148,7 @@ impl BNetwork {
     }
 
     fn pre_synch(&self, initial: &GraphColoredVertices)
--> GraphColoredVertices {
+    -> GraphColoredVertices {
         let output = initial.as_bdd() // (next, ?)
             .and(&self.extra_state_var_equivalence) // (next, next)
             .project(self.context.state_variables()) // (?, next)
@@ -160,11 +161,65 @@ impl BNetwork {
         GraphColoredVertices::new(self.unit_bdd.clone(), &self.context)
     }
 
+    fn empty_colored_vertices(&self) -> GraphColoredVertices {
+        GraphColoredVertices::new(
+            self.context.mk_constant(false), &self.context)
+    }
+
     fn fix_network_variable(&self, variable: VariableId, value: bool)
--> GraphColoredVertices {
+    -> GraphColoredVertices {
         let bdd_var = self.context.get_state_variable(variable);
         GraphColoredVertices::new(
             self.unit_bdd.var_select(bdd_var, value), &self.context)
+    }
+
+    fn search_loop(&self, initial: &GraphColoredVertices)
+    -> GraphColoredVertices {
+        let mut new = initial.clone();
+        let mut all = initial.clone();
+        let mut last = self.empty_colored_vertices();
+        // find loop, "last" will be the first repeated vertex
+        while !new.is_empty() {
+            last = self.post_synch(&new);
+            new = last.minus(&all);
+            all = all.union(&new);
+        }
+        let mut result = last.clone();
+        // get the whole loop
+        while !last.is_empty() {
+            last = self.post_synch(&last);
+            last = last.minus(&result);
+            result = result.union(&last);
+        }
+        result
+    }
+
+    fn predecessors(&self, initial: &GraphColoredVertices)
+    -> GraphColoredVertices {
+        let mut new = initial.clone();
+        let mut result = initial.clone();
+        while !new.is_empty() {
+            new = self.pre_synch(&new);
+            new = new.minus(&result);
+            result = result.union(&new);
+        }
+        result
+    }
+
+    fn attractors_in(&self, set: &GraphColoredVertices)
+    -> Vec<GraphColoredVertices> {
+        let mut result = Vec::new();
+        let mut all = set.clone();
+        while !all.is_empty() {
+            let attr = self.search_loop(&all.pick_vertex());
+            all = all.minus(&self.predecessors(&attr));
+            result.push(attr);
+        }
+        result
+    }
+
+    fn attractors(&self) -> Vec<GraphColoredVertices> {
+        self.attractors_in(&self.unit_colored_vertices())
     }
 
     fn bdd_to_str(&self, bdd: &Bdd) -> String {
@@ -289,7 +344,7 @@ fn main() {
     println!("{:?}", fixings);
     println!();
 
-    let init_state = vec![false, false, false, false, true, false];
+    let init_state = vec![false, false, false, false, false, false];
     let start = init_state.iter()
         .enumerate()
         .fold(bnetwork.unit_colored_vertices(),
@@ -299,4 +354,10 @@ fn main() {
     println!("{}", bnetwork.bdd_to_str(bnetwork.pre_synch(&start).as_bdd()));
     println!("{}", bnetwork.bdd_to_str(start.as_bdd()));
     println!("{}", bnetwork.bdd_to_str(bnetwork.post_synch(&start).as_bdd()));
+    println!();
+
+    println!("Attractors:");
+    for (i, attr) in bnetwork.attractors().iter().enumerate() {
+        println!("{i}: {}", bnetwork.bdd_to_str(attr.as_bdd()));
+    }
 }
