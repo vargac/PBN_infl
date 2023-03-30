@@ -71,7 +71,7 @@ pub(crate) fn ibmfa_entropy(
     iterations: usize,
     early_stop: bool,
     verbose: bool)
--> f32 {
+-> (f32, Vec<f32>) {
     let mut probs = (0..model.pupdate_functions.len())
         .map(|i|
             if let Some(&fixed_prob) = fixings.get(&FixingItem::Variable(i)) {
@@ -91,5 +91,5 @@ pub(crate) fn ibmfa_entropy(
             break;
         }
     }
-    ent
+    (ent, probs)
 }
