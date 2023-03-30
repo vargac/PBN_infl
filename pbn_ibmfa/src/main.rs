@@ -23,6 +23,8 @@ enum FixingItem {
     Parameter(BddVariable), // BddVariable in SymbolicContext
 }
 
+type Fixing = (FixingItem, f32);
+
 impl FixingItem {
     fn to_str(&self, context: &SymbolicContext) -> String {
         match self {
@@ -137,6 +139,113 @@ impl BNetwork {
         }
     }
 
+    fn prepare_fixings(
+        &self,
+        attr_opt: Option<&GraphVertices>,
+        colors: &GraphColors
+    ) -> Vec<Fixing> {
+        let mut available_fixings = Vec::new();
+
+        // Fixings of state variables
+        for var_i in 0..self.context.num_state_variables() {
+            for val in [0.0, 1.0] {
+                if let Some(attr) = attr_opt.as_ref() {
+                    let id = VariableId::from_index(var_i);
+                    if attr.fix_network_variable(id, val != 0.0).is_empty() {
+                        continue;
+                    }
+                }
+                available_fixings.push((FixingItem::Variable(var_i), val));
+            }
+        }
+
+        // Fixings of parameter variables
+        for bdd_var in self.context.parameter_variables() {
+            for val in [false, true] {
+                available_fixings.push(
+                    (FixingItem::Parameter(bdd_var.clone()),
+                    val as i32 as f32));
+            }
+        }
+        self.filter_fixings(&available_fixings, &colors)
+    }
+
+    fn filter_fixings(&self, fixings: &[Fixing], colors: &GraphColors)
+    -> Vec<Fixing> {
+        fixings.iter()
+            .filter(|fixing| match fixing {
+                (FixingItem::Variable(_), _) => true,
+                (FixingItem::Parameter(bdd_var), val) => {
+                    let after_fix = colors.as_bdd().var_select(
+                        *bdd_var, *val != 0.0);
+                    !after_fix.is_false() && after_fix != *colors.as_bdd()
+                }
+            })
+            .copied()
+            .collect()
+    }
+
+    fn find_driver_set(
+        &self,
+        iterations: usize,
+        attr_opt: Option<(&GraphVertices, &GraphColors)>,
+        verbose: bool
+    ) -> HashMap<FixingItem, f32> {
+        let mut colors = match attr_opt {
+            Some((_, attr_colors)) => attr_colors.clone(),
+            None => self.unit_colors()
+        };
+        let mut available_fixings =
+            self.prepare_fixings(attr_opt.map(|tup| tup.0), &colors);
+        let mut fixings = HashMap::new();
+
+        while available_fixings.len() > 0 {
+            if verbose {
+                println!("======= {} ========", available_fixings.len());
+            }
+            let (min_entropy_index, min_entropy) = available_fixings
+                .iter()
+                .map(|&(fixing_item, value)| {
+                    if verbose {
+                        println!("Try fix {fixing_item:?} ({}) to {value}",
+                            fixing_item.to_str(&self.context));
+                    }
+                    fixings.insert(fixing_item, value);
+                    let ent = ibmfa_entropy(
+                        &self, &fixings, iterations, false, false);
+                    if verbose {
+                        println!("{ent}");
+                    }
+                    fixings.remove(&fixing_item);
+                    ent
+                })
+                .enumerate()
+                .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .unwrap();
+            let (fixing_item, value) =
+                available_fixings.remove(min_entropy_index);
+            available_fixings.remove(min_entropy_index / 2 * 2);
+            if let FixingItem::Parameter(bdd_var) = fixing_item {
+                colors = colors.copy(
+                    colors.as_bdd().var_select(bdd_var, value != 0.0));
+                available_fixings = self.filter_fixings(
+                    &available_fixings, &colors);
+            }
+
+            if verbose {
+                println!("Fixing {fixing_item:?} ({}) = {value}, \
+                    entropy:{min_entropy}",
+                    fixing_item.to_str(&self.context));
+            }
+            fixings.insert(fixing_item, value);
+
+            if min_entropy == 0.0 {
+                break;
+            }
+        }
+        fixings
+    }
+
     fn post_synch(&self, initial: &GraphColoredVertices)
     -> GraphColoredVertices {
         let output = initial.as_bdd() // (prev, ?)
@@ -164,6 +273,10 @@ impl BNetwork {
     fn empty_colored_vertices(&self) -> GraphColoredVertices {
         GraphColoredVertices::new(
             self.context.mk_constant(false), &self.context)
+    }
+
+    fn unit_colors(&self) -> GraphColors {
+        GraphColors::new(self.unit_bdd.clone(), &self.context)
     }
 
     fn fix_network_variable(&self, variable: VariableId, value: bool)
@@ -251,6 +364,42 @@ fn valuation_to_str(valuation: &BddPartialValuation, context: &SymbolicContext)
     )
 }
 
+fn compute_attrs_map(attrs: &[GraphColoredVertices])
+-> HashMap<GraphVertices, GraphColors> {
+    let mut attrs_map = HashMap::new();
+    for attr in attrs {
+        let mut attr = attr.clone();
+        while !attr.is_empty() {
+            let mut wanted_vertices = attr
+                .intersect_colors(&attr.colors().pick_singleton())
+                .vertices();
+
+            let one_attr_vertices = wanted_vertices.clone();
+
+            let other_vertices = attr.vertices().minus(&one_attr_vertices);
+            let mut one_attr_colors = attr
+                .colors()
+                .minus(&attr.intersect_vertices(&other_vertices).colors());
+
+            while !wanted_vertices.is_empty() { // TODO just iterate over them
+                let one_attr_vertex = wanted_vertices.pick_singleton();
+                one_attr_colors = one_attr_colors.intersect(
+                    &attr.intersect_vertices(&wanted_vertices).colors());
+                wanted_vertices = wanted_vertices.minus(&one_attr_vertex);
+            }
+
+            attr = attr.minus_colors(&one_attr_colors);
+
+            attrs_map
+                .entry(one_attr_vertices)
+                .and_modify(|colors: &mut GraphColors|
+                    *colors = colors.union(&one_attr_colors))
+                .or_insert(one_attr_colors);
+        }
+    }
+    attrs_map
+}
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -299,55 +448,7 @@ fn main() {
     println!("Entropy: {}",
         ibmfa_entropy(&bnetwork, &fixings, iterations, true, true));
 
-    let mut available_fixings = Vec::new();
-    for var_i in 0..model.num_vars() {
-        available_fixings.push((FixingItem::Variable(var_i), 0.0));
-        available_fixings.push((FixingItem::Variable(var_i), 1.0));
-    }
-    for bdd_var in bnetwork.context.parameter_variables() {
-        for val in [false, true] {
-            // TODO we don't want is_true() neither, but  it has to be checked
-            // on the dependent variable level.
-            // TODO as well, update it after each fixing of any parameter var,
-            // as it could prohibit some other parameter var fixing
-            if !bnetwork.unit_bdd.var_select(*bdd_var, val).is_false() {
-                available_fixings.push((FixingItem::Parameter(bdd_var.clone()),
-                                        val as i32 as f32));
-            }
-        }
-    }
-
-    let mut restrictions = bnetwork.context.mk_constant(true);
-    let mut fixings = HashMap::new();
-
-    while available_fixings.len() > 0 {
-        println!("======= {} ========", available_fixings.len());
-        let (min_entropy_index, min_entropy) = available_fixings
-            .iter()
-            .map(|&(fixing_item, value)| {
-                println!("Try fix {fixing_item:?} ({}) to {value}",
-                    fixing_item.to_str(&bnetwork.context));
-                fixings.insert(fixing_item, value);
-                let ent = ibmfa_entropy(
-                    &bnetwork, &fixings, iterations, false, false);
-                println!("{ent}");
-                fixings.remove(&fixing_item);
-                ent
-            })
-            .enumerate()
-            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .unwrap();
-        let (fixing_item, value) = available_fixings.remove(min_entropy_index);
-        available_fixings.remove(min_entropy_index / 2 * 2);
-
-        println!("Fixing {fixing_item:?} ({}) = {value}, entropy:{min_entropy}",
-            fixing_item.to_str(&bnetwork.context));
-        fixings.insert(fixing_item, value);
-
-        if min_entropy == 0.0 {
-            break;
-        }
-    }
+    let fixings = bnetwork.find_driver_set(iterations, None, true);
 
     println!("{:?}", fixings);
     println!();
@@ -364,43 +465,12 @@ fn main() {
     println!("{}", bnetwork.bdd_to_str(bnetwork.post_synch(&start).as_bdd()));
     println!();
 
-    println!("Attractors:");
     let attrs = bnetwork.attractors();
-    let mut attrs_map = HashMap::new();
+    let attrs_map = compute_attrs_map(&attrs);
 
-    for (i, attr) in attrs.iter().enumerate() {
-        let mut attr = attr.clone();
-        while !attr.is_empty() {
-            let mut wanted_vertices = attr
-                .intersect_colors(&attr.colors().pick_singleton())
-                .vertices();
-
-            let one_attr_vertices = wanted_vertices.clone();
-
-            let other_vertices = attr.vertices().minus(&one_attr_vertices);
-            let mut one_attr_colors = attr
-                .colors()
-                .minus(&attr.intersect_vertices(&other_vertices).colors());
-
-            while !wanted_vertices.is_empty() { // TODO just iterate over them
-                let one_attr_vertex = wanted_vertices.pick_singleton();
-                one_attr_colors = one_attr_colors.intersect(
-                    &attr.intersect_vertices(&wanted_vertices).colors());
-                wanted_vertices = wanted_vertices.minus(&one_attr_vertex);
-            }
-
-            attr = attr.minus_colors(&one_attr_colors);
-
-            attrs_map
-                .entry(one_attr_vertices)
-                .and_modify(|colors: &mut GraphColors|
-                    *colors = colors.union(&one_attr_colors))
-                .or_insert(one_attr_colors);
-        }
-    }
-
-    println!("{}", attrs_map.len());
-    for (i, attr) in attrs_map.keys().enumerate() {
-        println!("{i}: {}", bnetwork.attr_to_str(attr))
+    println!("Attractors: {}", attrs_map.len());
+    for (i, (attr, colors)) in attrs_map.iter().enumerate() {
+        println!("{i} (size {}): {}",
+            colors.approx_cardinality(), bnetwork.attr_to_str(attr))
     }
 }
