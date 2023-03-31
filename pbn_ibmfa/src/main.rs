@@ -17,24 +17,135 @@ use crate::_impl_regulation_constraint::apply_regulation_constraints;
 use crate::_impl_ibmfa_computations::*;
 
 
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
-enum FixingItem {
-    Variable(usize),  // index of the Variable in BooleanNetwork
-    Parameter(BddVariable), // BddVariable in SymbolicContext
+#[derive(Debug, Clone)]
+struct UnitVertexFix {
+    var_id: VariableId,
+    value: bool,
 }
 
-type Fixing = (FixingItem, f32);
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+struct UnitParameterFix {
+    bdd_var: BddVariable,
+    value: bool,
+}
 
-impl FixingItem {
+#[derive(Debug, Clone)]
+enum UnitFix {
+    Vertex(UnitVertexFix),
+    Parameter(UnitParameterFix),
+}
+
+type DriverSet = HashMap<VariableId, bool>;
+type ColorsFix = Bdd;
+
+#[derive(Debug)]
+struct PBNFix {
+    driver_set: DriverSet,
+    colors_fix: ColorsFix,
+    parameter_fixes: HashSet<UnitParameterFix>,
+    unit_bdd: ColorsFix,
+}
+
+impl UnitVertexFix {
+    fn to_str(&self, context: &SymbolicContext) -> String {
+        let bdd_var = context.get_state_variable(self.var_id);
+        format!("{}({})={}",
+            bdd_var_to_str(bdd_var, &context),
+            self.var_id.to_index(),
+            if self.value { 1 } else { 0 })
+    }
+}
+
+impl UnitParameterFix {
+    fn to_str(&self, context: &SymbolicContext) -> String {
+        format!("{}({})={}",
+            bdd_var_to_str(self.bdd_var, &context),
+            self.bdd_var,
+            if self.value { 1 } else { 0 })
+    }
+}
+
+impl UnitFix {
     fn to_str(&self, context: &SymbolicContext) -> String {
         match self {
-            FixingItem::Variable(var_i) => bdd_var_to_str(
-                &context.get_state_variable(VariableId::from_index(*var_i)),
-                &context),
-            FixingItem::Parameter(bdd_var) => bdd_var_to_str(bdd_var, &context),
+            UnitFix::Vertex(fix) => fix.to_str(&context),
+            UnitFix::Parameter(fix) => fix.to_str(&context),
         }
     }
 }
+
+impl PBNFix {
+    fn new(unit_bdd: Bdd) -> Self {
+        PBNFix {
+            driver_set: HashMap::new(),
+            colors_fix: unit_bdd.iff(&unit_bdd), // hack to create true bdd
+            parameter_fixes: HashSet::new(),
+            unit_bdd,
+        }
+    }
+
+    fn insert(&mut self, fix: &UnitFix) {
+        match fix {
+            UnitFix::Vertex(fix) =>
+                if self.driver_set.insert(fix.var_id, fix.value).is_some() {
+                    panic!("Overriding driver-set by {:?}", fix);
+                }
+            UnitFix::Parameter(fix) => {
+                self.colors_fix =
+                    self.colors_fix.var_select(fix.bdd_var, fix.value);
+                self.parameter_fixes.insert(fix.clone());
+            }
+        }
+    }
+
+    fn remove(&mut self, fix: &UnitFix) {
+        match fix {
+            UnitFix::Vertex(fix) =>
+                if self.driver_set.remove(&fix.var_id).is_none() {
+                    panic!("Fix not in the driver-set {:?}", fix);
+                }
+            UnitFix::Parameter(fix) => {
+                if !self.parameter_fixes.remove(fix) {
+                    panic!("Fix not among the parameter-fixes {:?}", fix);
+                }
+                self.colors_fix = self.colors_fix.var_project(fix.bdd_var);
+            }
+        }
+    }
+
+    fn colors(&self) -> ColorsFix {
+        self.unit_bdd.and(&self.colors_fix)
+    }
+
+    fn get_vertex(&self, vertex: VariableId) -> Option<bool> {
+        self.driver_set.get(&vertex).copied()
+    }
+
+    fn driver_set_to_str(&self, context: &SymbolicContext) -> String {
+        format!("{{ {}}}", self.driver_set.iter()
+            .map(|(&var_id, &value)| format!("{} ",
+                (UnitVertexFix { var_id, value }).to_str(&context)))
+            .collect::<String>())
+    }
+
+    fn par_fixes_to_str(&self, context: &SymbolicContext) -> String {
+        format!("{{ {}}}", self.parameter_fixes.iter()
+            .map(|par_fix| format!("{} ", par_fix.to_str(&context)))
+            .collect::<String>())
+    }
+
+    fn colors_to_str(&self, context: &SymbolicContext) -> String {
+        format!("{}",
+            self.colors().to_boolean_expression(context.bdd_variable_set()))
+    }
+
+    fn to_str(&self, context: &SymbolicContext) -> String {
+        format!("Driver-set: {}\nParameter-fixes: {}",
+            self.driver_set_to_str(&context),
+            self.par_fixes_to_str(&context))
+    }
+}
+
 
 #[derive(Clone, Debug)]
 struct ParedUpdateFunction {
@@ -72,6 +183,7 @@ impl ParedUpdateFunction {
 type VarIndex = HashMap<BddVariable, usize>;
 
 struct BNetwork {
+    bn: BooleanNetwork,
     context: SymbolicContext,
     unit_bdd: Bdd,
     pupdate_functions: Vec<ParedUpdateFunction>,
@@ -81,7 +193,7 @@ struct BNetwork {
 }
 
 impl BNetwork {
-    fn new(bn: &BooleanNetwork) -> BNetwork {
+    fn new(bn: BooleanNetwork) -> BNetwork {
         let extra_vars = bn.variables()
             .map(|var_id| (var_id, 1))
             .collect::<HashMap<_, _>>();
@@ -130,6 +242,7 @@ impl BNetwork {
             .collect::<Vec<_>>();
 
         BNetwork {
+            bn,
             context,
             unit_bdd,
             pupdate_functions,
@@ -139,55 +252,87 @@ impl BNetwork {
         }
     }
 
-    fn prepare_fixings(
+    fn prepare_fixes(
         &self,
         attr_opt: Option<&GraphVertices>,
-        colors: &GraphColors
-    ) -> Vec<Fixing> {
-        let mut available_fixings = Vec::new();
+        colors: Bdd
+    ) -> (Vec<UnitFix>, PBNFix) {
+        let mut available_fixes = Vec::new();
 
         // Fixings of state variables
-        for var_i in 0..self.context.num_state_variables() {
-            for val in [0.0, 1.0] {
+        for var_id in self.bn.variables() {
+            for value in [false, true] {
                 if let Some(attr) = attr_opt.as_ref() {
-                    let id = VariableId::from_index(var_i);
-                    if attr.fix_network_variable(id, val != 0.0).is_empty() {
+                    if attr.fix_network_variable(var_id, value).is_empty() {
                         continue;
                     }
                 }
-                available_fixings.push((FixingItem::Variable(var_i), val));
+                let fix = UnitVertexFix { var_id, value };
+                available_fixes.push(UnitFix::Vertex(fix));
             }
         }
 
         // Fixings of parameter variables
         for bdd_var in self.context.parameter_variables() {
-            for val in [false, true] {
-                available_fixings.push(
-                    (FixingItem::Parameter(bdd_var.clone()),
-                    val as i32 as f32));
+            for value in [false, true] {
+                let fix = UnitParameterFix { bdd_var: *bdd_var, value };
+                available_fixes.push(UnitFix::Parameter(fix));
             }
         }
 
-        self.filter_fixings(&available_fixings, &HashMap::new(), &colors)
+        let pbn_fix = PBNFix::new(colors);
+        (self.filter_fixes(&available_fixes, &pbn_fix), pbn_fix)
     }
 
-    fn filter_fixings(
+    fn filter_fixes(
         &self,
-        fixings: &[Fixing],
-        already_fixed: &HashMap<FixingItem, f32>,
-        colors: &GraphColors)
-    -> Vec<Fixing> {
-        fixings.iter()
-            .filter(|fixing| match fixing {
-                (FixingItem::Parameter(bdd_var), val) => {
-                    let after_fix = colors.as_bdd().var_select(
-                        *bdd_var, *val != 0.0);
-                    !after_fix.is_false() && after_fix != *colors.as_bdd()
+        fixes: &[UnitFix],
+        pbn_fix: &PBNFix,
+    ) -> Vec<UnitFix> {
+        fixes.iter()
+            .filter(|fix| match fix {
+                UnitFix::Parameter(UnitParameterFix { bdd_var, value }) => {
+                    let before = pbn_fix.colors();
+                    let after = before.var_select(*bdd_var, *value);
+                    !after.is_false() && after != before
                 },
-                (fix_item_var, _) => !already_fixed.contains_key(fix_item_var)
+                UnitFix::Vertex(UnitVertexFix { var_id, .. }) =>
+                    !pbn_fix.driver_set.contains_key(var_id)
             })
-            .copied()
+            .cloned()
             .collect()
+    }
+
+    // `fixings` is `mut`, but after the function call it remains the same as
+    // before.
+    fn minimize_entropy(
+        &self,
+        iterations: usize,
+        pbn_fix: &mut PBNFix,
+        available_fixes: &[UnitFix],
+        verbose: bool,
+    ) -> (usize, f32, Vec<f32>) {
+        let (index, (entropy, probs)) = available_fixes.iter()
+            .map(|unit_fix| {
+                if verbose {
+                    println!("Try fix {}", unit_fix.to_str(&self.context));
+                }
+
+                pbn_fix.insert(unit_fix);
+                let (ent, probs) = ibmfa_entropy(
+                    &self, &pbn_fix, iterations, false, false);
+                pbn_fix.remove(unit_fix);
+
+                if verbose {
+                    println!("{ent}");
+                }
+
+                (ent, probs)
+            })
+            .enumerate()
+            .min_by(|(_, (a, _)), (_, (b, _))| a.partial_cmp(b).unwrap())
+            .unwrap();
+        (index, entropy, probs)
     }
 
     fn find_driver_set(
@@ -195,61 +340,41 @@ impl BNetwork {
         iterations: usize,
         attr_opt: Option<(&GraphVertices, &GraphColors)>,
         verbose: bool
-    ) -> (HashMap<FixingItem, f32>, Vec<f32>) {
-        let mut colors = match attr_opt {
-            Some((_, attr_colors)) => attr_colors.clone(),
-            None => self.unit_colors()
+    ) -> (PBNFix, Vec<f32>) {
+        let colors = match attr_opt {
+            Some((_, attr_colors)) => attr_colors.as_bdd().clone(),
+            None => self.unit_bdd.clone(),
         };
-        let mut available_fixings =
-            self.prepare_fixings(attr_opt.map(|tup| tup.0), &colors);
-        let mut fixings = HashMap::new();
+        let (mut available_fixes, mut pbn_fix) =
+            self.prepare_fixes(attr_opt.map(|tup| tup.0), colors);
+
         let mut final_probs = Vec::new();
 
-        while available_fixings.len() > 0 {
+        while available_fixes.len() > 0 {
             if verbose {
-                println!("======= {} ========", available_fixings.len());
-            }
-            let (min_entropy_index, (min_entropy, probs)) = available_fixings
-                .iter()
-                .map(|&(fixing_item, value)| {
-                    if verbose {
-                        println!("Try fix {fixing_item:?} ({}) to {value}",
-                            fixing_item.to_str(&self.context));
-                    }
-                    fixings.insert(fixing_item, value);
-                    let (ent, probs) = ibmfa_entropy(
-                        &self, &fixings, iterations, false, false);
-                    if verbose {
-                        println!("{ent}");
-                    }
-                    fixings.remove(&fixing_item);
-                    (ent, probs)
-                })
-                .enumerate()
-                .min_by(|(_, (a, _)), (_, (b, _))| a.partial_cmp(b).unwrap())
-                .unwrap();
-            let (fixing_item, value) =
-                available_fixings.remove(min_entropy_index);
-            if let FixingItem::Parameter(bdd_var) = fixing_item {
-                colors = colors.copy(
-                    colors.as_bdd().var_select(bdd_var, value != 0.0));
+                println!("======= {} ========", available_fixes.len());
             }
 
+            let (min_entropy_index, min_entropy, probs) = self.minimize_entropy(
+                iterations, &mut pbn_fix, &available_fixes, verbose);
+
+            let unit_fix = &available_fixes[min_entropy_index];
+            pbn_fix.insert(unit_fix);
+
             if verbose {
-                println!("Fixing {fixing_item:?} ({}) = {value}, \
-                    entropy:{min_entropy}",
-                    fixing_item.to_str(&self.context));
+                println!("Fixing {}, entropy:{min_entropy}",
+                    unit_fix.to_str(&self.context));
+                println!("{}", pbn_fix.to_str(&self.context));
             }
-            fixings.insert(fixing_item, value);
-            available_fixings = self.filter_fixings(
-                &available_fixings, &fixings, &colors);
+
+            available_fixes = self.filter_fixes(&available_fixes, &pbn_fix);
             final_probs = probs;
 
             if min_entropy == 0.0 {
                 break;
             }
         }
-        (fixings, final_probs)
+        (pbn_fix, final_probs)
     }
 
     fn post_synch(&self, initial: &GraphColoredVertices)
@@ -358,14 +483,14 @@ impl BNetwork {
                     .state_variables().iter()
                     .filter(|&bdd_var| bdd_valuation[*bdd_var])
                     .map(|bdd_var|
-                        format!("{} ", bdd_var_to_str(bdd_var, &self.context)))
+                        format!("{} ", bdd_var_to_str(*bdd_var, &self.context)))
                     .collect::<String>()))
             .collect::<String>())
     }
 }
 
-fn bdd_var_to_str(bdd_var: &BddVariable, context: &SymbolicContext) -> String {
-    context.bdd_variable_set().name_of(*bdd_var)
+fn bdd_var_to_str(bdd_var: BddVariable, context: &SymbolicContext) -> String {
+    context.bdd_variable_set().name_of(bdd_var)
 }
 
 fn valuation_to_str(valuation: &BddPartialValuation, context: &SymbolicContext)
@@ -374,7 +499,7 @@ fn valuation_to_str(valuation: &BddPartialValuation, context: &SymbolicContext)
         .to_values()
         .iter()
         .map(|&(bdd_var, val)|
-            format!("{}={}", bdd_var_to_str(&bdd_var, &context), val))
+            format!("{}={}", bdd_var_to_str(bdd_var, &context), val))
         .collect::<Vec<_>>()
     )
 }
@@ -426,7 +551,7 @@ fn main() {
         eprintln!("Cannot read the file, err: {}", err);
         process::exit(1);
     });
-    let mut model = BooleanNetwork::try_from(model_string.as_str()).unwrap();
+    let model = BooleanNetwork::try_from(model_string.as_str()).unwrap();
     println!("vars: {}, pars: {}", model.num_vars(), model.num_parameters());
     println!("vars: {:?}", model.variables()
         .map(|var_id| model.get_variable_name(var_id))
@@ -434,7 +559,7 @@ fn main() {
     );
     println!();
 
-    let bnetwork = BNetwork::new(&model);
+    let bnetwork = BNetwork::new(model);
 
     println!("{:?}", bnetwork.var_index);
     println!();
@@ -458,22 +583,21 @@ fn main() {
 
 
     let iterations = 10;
-    let mut fixings = HashMap::new();
+    let mut pbn_fix = PBNFix::new(bnetwork.unit_colors().into_bdd());
 
-    let (e, p) = ibmfa_entropy(&bnetwork, &fixings, iterations, true, true);
+    let (e, p) = ibmfa_entropy(&bnetwork, &pbn_fix, iterations, true, true);
     println!("Entropy: {}, Probs: {:?}", e, p);
 
-    let (fixings, probs) = bnetwork.find_driver_set(iterations, None, true);
+    let (pbn_fix, probs) = bnetwork.find_driver_set(iterations, None, true);
 
-    println!("{:?}\n{:?}", fixings, probs);
+    println!("{}\n{:?}", pbn_fix.to_str(&bnetwork.context), probs);
     println!();
 
     let init_state = vec![false, false, false, false, false, false];
     let start = init_state.iter()
-        .enumerate()
+        .zip(bnetwork.bn.variables())
         .fold(bnetwork.unit_colored_vertices(),
-            |acc, (i, &val)|
-                acc.fix_network_variable(VariableId::from_index(i), val));
+            |acc, (&val, var_id)| acc.fix_network_variable(var_id, val));
 
     println!("{}", bnetwork.bdd_to_str(bnetwork.pre_synch(&start).as_bdd()));
     println!("{}", bnetwork.bdd_to_str(start.as_bdd()));
@@ -488,33 +612,37 @@ fn main() {
         println!("{i} (size {}): {}",
             colors.approx_cardinality(), bnetwork.attr_to_str(attr));
         if attr.approx_cardinality() == 1.0 {
-            let (driver_set, probs) = bnetwork.find_driver_set(
+            let (pbn_fix, probs) = bnetwork.find_driver_set(
                 iterations, Some((&attr, &colors)), false);
             println!("{:?}", probs);
-            if !model.variables().enumerate().all(|(i, var_id)|
+            if !bnetwork.bn.variables().enumerate().all(|(i, var_id)|
                     (probs[i] == 1.0 || probs[i] == 0.0)
                     && !attr.fix_network_variable(
                         var_id, probs[i] != 0.0).is_empty()) {
                 println!("WRONG");
             }
-            for (fixing_item, value) in driver_set {
-                println!("\t{} = {}",
-                    fixing_item.to_str(&bnetwork.context), value);
+            for (var_id, value) in pbn_fix.driver_set {
+                let unit_ver_fix = UnitVertexFix { var_id, value };
+                println!("\t{}", unit_ver_fix.to_str(&bnetwork.context));
+            }
+            for unit_par_fix in pbn_fix.parameter_fixes {
+                println!("\t{}", unit_par_fix.to_str(&bnetwork.context));
             }
         }
     }
 
     println!();
 
-    let attr = ["v_Progenitor", "v_miR_9", "v_zic5"];
+    let attr = ["v_miR_9", "v_zic5"];
     let attr_vertex_ids = attr.iter()
-        .map(|name| model.as_graph().find_variable(name).unwrap())
+        .map(|name| bnetwork.bn.as_graph().find_variable(name).unwrap())
         .collect::<HashSet<_>>();
-    let attr_vertices = model.variables()
+    let attr_vertices = bnetwork.bn.variables()
         .map(|var_id| (var_id, attr_vertex_ids.contains(&var_id)))
         .fold(bnetwork.unit_colored_vertices().vertices(),
             |acc, (var_id, val)| acc.fix_network_variable(var_id, val));
     println!("{}", bnetwork.attr_to_str(&attr_vertices));
+    println!("{}", bnetwork.bdd_to_str(attrs_map[&attr_vertices].as_bdd()));
 
     bnetwork.find_driver_set(
         iterations,

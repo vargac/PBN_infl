@@ -1,5 +1,5 @@
 use biodivine_lib_bdd::BddPartialValuation;
-use crate::{VarIndex, BNetwork, FixingItem};
+use crate::{VarIndex, BNetwork, PBNFix};
 use std::collections::HashMap;
 
 pub(crate) fn clause_probability(
@@ -18,28 +18,17 @@ pub(crate) fn clause_probability(
 pub(crate) fn ibmfa_step(
     model: &BNetwork,
     probs: &[f32],
-    fixings: &HashMap<FixingItem, f32>)
+    pbn_fix: &PBNFix)
 -> Vec<f32> {
-    let mut restriction = model.context.mk_constant(true);
-    for (&item, &value) in fixings {
-        if let FixingItem::Parameter(bdd_var) = item {
-            let var_as_bdd = 
-                if value == 1.0 { // TODO f32 -> bool
-                    model.context.bdd_variable_set().mk_var(bdd_var)
-                } else {
-                    model.context.bdd_variable_set().mk_not_var(bdd_var)
-                };
-            restriction = restriction.and(&var_as_bdd);
-        }
-    }
     model.pupdate_functions.iter()
-        .enumerate()
-        .map(|(i, pupdate_function)|
-            if let Some(&fixed_prob) = fixings.get(&FixingItem::Variable(i)) {
-                fixed_prob
+        .zip(model.bn.variables())
+        .map(|(pupdate_function, var_id)|
+            if let Some(fixed_prob) = pbn_fix.get_vertex(var_id) {
+                if fixed_prob { 1.0 } else { 0.0 }
             } else {
                 let mut pnumber = 0;
-                pupdate_function.restricted_parametrizations(&restriction)
+                pupdate_function
+                    .restricted_parametrizations(&pbn_fix.colors_fix)
                     .sat_clauses()
                     .map(|parametrization| {
                         pnumber += 1;
@@ -67,22 +56,22 @@ pub(crate) fn entropy(probs: &[f32]) -> f32 {
  * converge, up to max iteration number. */
 pub(crate) fn ibmfa_entropy(
     model: &BNetwork,
-    fixings: &HashMap<FixingItem, f32>,
+    pbn_fix: &PBNFix,
     iterations: usize,
     early_stop: bool,
     verbose: bool)
 -> (f32, Vec<f32>) {
-    let mut probs = (0..model.pupdate_functions.len())
-        .map(|i|
-            if let Some(&fixed_prob) = fixings.get(&FixingItem::Variable(i)) {
-                fixed_prob
+    let mut probs = model.bn.variables()
+        .map(|var_id|
+            if let Some(fixed_prob) = pbn_fix.get_vertex(var_id) {
+                if fixed_prob { 1.0 } else { 0.0 }
             } else {
                 0.5
             })
         .collect::<Vec<_>>();
     let mut ent = 0.0;
     for _ in 0..iterations {
-        probs = ibmfa_step(&model, &probs, &fixings);
+        probs = ibmfa_step(&model, &probs, &pbn_fix);
         if verbose {
             println!("{:?}", probs);
         }
