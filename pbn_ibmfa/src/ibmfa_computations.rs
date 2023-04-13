@@ -98,10 +98,8 @@ fn ibmfa_step(
                 if fixed_prob { 1.0 } else { 0.0 }
             } else {
                 let mut pnumber = 0;
-// TODO: unit_bdd is incorporated both in "restricted_parametrizations"
-//       and pbn_fix.colors(). Duplication of information.
                 let parametrizations = pupdate_function
-                    .restricted_parametrizations(&pbn_fix.colors());
+                    .restricted_parametrizations(pbn_fix.colors());
 
                 let pars = sync_graph.get_all_false()
                     .project(&Vec::from_iter(parametrizations.support_set()))

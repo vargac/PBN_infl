@@ -153,59 +153,13 @@ fn main() {
                         (probs[i] == 1.0 || probs[i] == 0.0)
                         && !attr.fix_network_variable(
                             var_id, probs[i] != 0.0).is_empty()) {
-                println!("WRONG");
+                println!("<><><> WRONG <><><>");
+            }
+            if !pbn_fix.get_parameter_fixes().is_empty() {
+                println!("<><><> FOUND <><><>");
             }
             println!("{}", pbn_fix.to_str(sync_graph.symbolic_context()));
         }
     }
     println!();
-
-    // Find a driver set for one specific attractor
-    let attr = ["v_miR_9", "v_zic5"];
-    let attr_vertices = attr_from_str(&attr, &sync_graph);
-
-    println!("Attractor: {}", vertices_to_str(
-            &attr_vertices, sync_graph.symbolic_context()));
-    println!("Colors: {}", bdd_to_str(
-            attrs_map[&attr_vertices].as_bdd(), sync_graph.symbolic_context()));
-
-    let colors = &attrs_map[&attr_vertices];
-    find_driver_set(
-        &sync_graph,
-        iterations,
-        Some((&attr_vertices, &colors)),
-        true
-    );
-
-    for fix_val in [false, true] {
-        let colors = colors.copy(
-            colors.as_bdd().var_select(
-                sync_graph
-                    .symbolic_context()
-                    .bdd_variable_set()
-                    .var_by_name("f_v_miR_9[1,0]")
-                    .unwrap(),
-                fix_val
-            )
-        );
-
-        println!();
-        println!("Colors: {}", bdd_to_str(
-            colors.as_bdd(), sync_graph.symbolic_context()));
-        find_driver_set(
-            &sync_graph,
-            iterations,
-            Some((&attr_vertices, &colors)),
-            true
-        );
-    }
-
-
-    println!();
-    let tree = decision_tree(
-        &sync_graph,
-        iterations,
-        (&attr_vertices, &attrs_map[&attr_vertices])
-    );
-    println!("{tree:?}");
 }

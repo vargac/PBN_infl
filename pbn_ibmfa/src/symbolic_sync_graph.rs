@@ -47,15 +47,17 @@ impl ParedUpdateFunction {
                 |acc, &bdd_var| acc.var_restrict(bdd_var, restriction[bdd_var]))
     }
 
-    pub fn restricted_parametrizations(&self, restriction: &Bdd) -> Bdd {
+    /// Colors has to be a subset of unit_bdd
+    pub fn restricted_parametrizations(&self, colors: Bdd) -> Bdd {
         let support_set = self.function.support_set();
-        let mut restriction = restriction.clone();
-        for bdd_var in restriction.support_set() {
-            if !support_set.contains(&bdd_var) {
-                restriction = restriction.var_project(bdd_var);
-            }
-        }
-        self.parametrizations.and(&restriction)
+        colors.support_set().iter()
+            .filter(|bdd_var| !support_set.contains(bdd_var))
+            .fold(colors, |acc, bdd_var| acc.var_project(*bdd_var))
+    }
+
+    pub fn restricted_parametrizations_safe(&self, restriction: Bdd) -> Bdd {
+        self.parametrizations.and(
+            &self.restricted_parametrizations(restriction))
     }
 }
 
