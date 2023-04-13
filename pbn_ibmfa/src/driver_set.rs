@@ -3,12 +3,12 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, GraphVertices};
 use biodivine_lib_bdd::Bdd;
 
 use crate::symbolic_sync_graph::SymbSyncGraph;
-use crate::ibmfa_computations::ibmfa_entropy;
-use fixes::{UnitFix, UnitVertexFix, UnitParameterFix};
-pub use fixes::PBNFix;
+use crate::ibmfa_computations::minimize_entropy;
+use fixes::{UnitVertexFix, UnitParameterFix};
+pub use fixes::{PBNFix, UnitFix};
 
 
-mod fixes;
+pub mod fixes;
 
 
 pub fn find_driver_set(
@@ -31,10 +31,10 @@ pub fn find_driver_set(
             println!("======= {} ========", available_fixes.len());
         }
 
-        let (min_entropy_index, min_entropy, probs) = minimize_entropy(
-            &sync_graph, iterations, &mut pbn_fix, &available_fixes, verbose);
+        let (unit_fix, min_entropy, probs) = minimize_entropy(
+            &sync_graph, iterations, &mut pbn_fix, &available_fixes, verbose)
+            .unwrap();
 
-        let unit_fix = &available_fixes[min_entropy_index];
         pbn_fix.insert(unit_fix);
 
         if verbose {
@@ -98,37 +98,4 @@ fn filter_fixes(fixes: &[UnitFix], pbn_fix: &PBNFix) -> Vec<UnitFix> {
         })
         .cloned()
         .collect()
-}
-
-// `pbn_fix` is `mut`, but after the function call it remains the same as
-// before.
-fn minimize_entropy(
-    sync_graph: &SymbSyncGraph,
-    iterations: usize,
-    pbn_fix: &mut PBNFix,
-    available_fixes: &[UnitFix],
-    verbose: bool,
-) -> (usize, f32, Vec<f32>) {
-    let (index, (entropy, probs)) = available_fixes.iter()
-        .map(|unit_fix| {
-            if verbose {
-                println!("Try fix {}",
-                    unit_fix.to_str(&sync_graph.symbolic_context()));
-            }
-
-            pbn_fix.insert(unit_fix);
-            let (ent, probs) = ibmfa_entropy(
-                &sync_graph, &pbn_fix, iterations, false, false);
-            pbn_fix.remove(unit_fix);
-
-            if verbose {
-                println!("{ent}");
-            }
-
-            (ent, probs)
-        })
-        .enumerate()
-        .min_by(|(_, (a, _)), (_, (b, _))| a.partial_cmp(b).unwrap())
-        .unwrap();
-    (index, entropy, probs)
 }

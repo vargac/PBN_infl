@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use biodivine_lib_param_bn::{BooleanNetwork};
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
-use biodivine_lib_bdd::{Bdd, BddVariable, BddPartialValuation};
+use biodivine_lib_bdd::{Bdd, BddVariable, BddValuation};
 
 use regulation_constraints::apply_regulation_constraints;
 
@@ -41,8 +41,10 @@ impl ParedUpdateFunction {
         &self.parametrizations
     }
 
-    pub fn restricted(&self, restriction: &BddPartialValuation) -> Bdd {
-        self.function.restrict(&restriction.to_values())
+    pub fn restricted(&self, restriction: &BddValuation) -> Bdd {
+        self.parametrizations.support_set().iter()
+            .fold(self.function.clone(),
+                |acc, &bdd_var| acc.var_restrict(bdd_var, restriction[bdd_var]))
     }
 
     pub fn restricted_parametrizations(&self, restriction: &Bdd) -> Bdd {
@@ -68,6 +70,7 @@ pub struct SymbSyncGraph {
     total_update_function: Bdd,
     extra_state_var_equivalence: Bdd,
     var_index: VarIndex,
+    all_false_bdd: Bdd,
 }
 
 impl SymbSyncGraph {
@@ -119,6 +122,9 @@ impl SymbSyncGraph {
             .map(|fun| ParedUpdateFunction::new(fun, &unit_bdd))
             .collect::<Vec<_>>();
 
+        let all_false_bdd = Bdd::from(
+            BddValuation::all_false(context.bdd_variable_set().num_vars()));
+
         SymbSyncGraph {
             bn,
             context,
@@ -126,7 +132,8 @@ impl SymbSyncGraph {
             pupdate_functions,
             total_update_function,
             extra_state_var_equivalence,
-            var_index
+            var_index,
+            all_false_bdd,
         }
     }
 
@@ -144,5 +151,9 @@ impl SymbSyncGraph {
 
     pub fn get_var_index(&self) -> &VarIndex {
         &self.var_index
+    }
+
+    pub fn get_all_false(&self) -> &Bdd {
+        &self.all_false_bdd
     }
 }

@@ -28,7 +28,7 @@ pub enum UnitFix {
 pub type DriverSet = HashMap<VariableId, bool>;
 pub type ColorsFix = Bdd;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PBNFix {
     driver_set: DriverSet,
     colors_fix: ColorsFix,
@@ -79,12 +79,25 @@ impl PBNFix {
         &self.colors_fix
     }
 
+    pub fn clear_colors_fix(&mut self) {
+        self.parameter_fixes.clear();
+        self.colors_fix = self.colors_fix.iff(&self.colors_fix);
+    }
+
     pub fn colors(&self) -> ColorsFix {
         self.unit_bdd.and(&self.colors_fix)
     }
 
+    pub fn get_parameter_fixes(&self) -> &HashSet<UnitParameterFix> {
+        &self.parameter_fixes
+    }
+
     pub fn get_vertex(&self, vertex: VariableId) -> Option<bool> {
         self.driver_set.get(&vertex).copied()
+    }
+
+    pub fn get_driver_set(&self) -> &DriverSet {
+        &self.driver_set
     }
 
     pub fn insert(&mut self, fix: &UnitFix) {

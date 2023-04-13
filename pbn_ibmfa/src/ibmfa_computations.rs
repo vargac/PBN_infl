@@ -1,7 +1,8 @@
 use biodivine_lib_bdd::BddPartialValuation;
 
 use crate::symbolic_sync_graph::{SymbSyncGraph, VarIndex};
-use crate::driver_set::PBNFix;
+use crate::driver_set::{PBNFix, UnitFix};
+use crate::utils::bdd_pick_unsupported;
 
 
 pub fn entropy(probs: &[f32]) -> f32 {
@@ -42,6 +43,36 @@ pub fn ibmfa_entropy(
     (ent, probs)
 }
 
+// `pbn_fix` is `mut`, but after the function call it remains the same as
+// before.
+pub fn minimize_entropy<'a>(
+    sync_graph: &SymbSyncGraph,
+    iterations: usize,
+    pbn_fix: &mut PBNFix,
+    available_fixes: impl IntoIterator<Item = &'a UnitFix>,
+    verbose: bool,
+) -> Option<(&'a UnitFix, f32, Vec<f32>)> {
+    available_fixes.into_iter()
+        .map(|unit_fix| {
+            if verbose {
+                println!("Try fix {}",
+                    unit_fix.to_str(&sync_graph.symbolic_context()));
+            }
+
+            pbn_fix.insert(unit_fix);
+            let (ent, probs) = ibmfa_entropy(
+                &sync_graph, &pbn_fix, iterations, false, false);
+            pbn_fix.remove(unit_fix);
+
+            if verbose {
+                println!("{ent}");
+            }
+
+            (unit_fix, ent, probs)
+        })
+        .min_by(|(_, a, _), (_, b, _)| a.partial_cmp(b).unwrap())
+}
+
 fn clause_probability(
     clause: &BddPartialValuation,
     probs: &[f32],
@@ -67,9 +98,16 @@ fn ibmfa_step(
                 if fixed_prob { 1.0 } else { 0.0 }
             } else {
                 let mut pnumber = 0;
-                pupdate_function
-                    .restricted_parametrizations(pbn_fix.get_colors_fix())
-                    .sat_clauses() // TODO nie sat_valuations()?
+// TODO: unit_bdd is incorporated both in "restricted_parametrizations"
+//       and pbn_fix.colors(). Duplication of information.
+                let parametrizations = pupdate_function
+                    .restricted_parametrizations(&pbn_fix.colors());
+
+                let pars = sync_graph.get_all_false()
+                    .project(&Vec::from_iter(parametrizations.support_set()))
+                    .and(&parametrizations);
+
+                pars.sat_valuations()
                     .map(|parametrization| {
                         pnumber += 1;
                         pupdate_function.restricted(&parametrization)
@@ -78,7 +116,6 @@ fn ibmfa_step(
                                     sync_graph.get_var_index()))
                             .sum::<f32>()
                     })
- // TODO May be just count the number of parametrizations and iterate over all?
                     .sum::<f32>() / pnumber as f32
             })
         .collect()

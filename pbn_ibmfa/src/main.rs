@@ -8,16 +8,20 @@ use biodivine_lib_param_bn::BooleanNetwork;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::
     {GraphColoredVertices, GraphColors, GraphVertices};
+use biodivine_lib_bdd::BddVariable;
 
 use symbolic_sync_graph::SymbSyncGraph;
-use utils::{valuation_to_str, vertices_to_str, attr_from_str, bdd_to_str};
+use utils::{partial_valuation_to_str, valuation_to_str, vertices_to_str,
+            attr_from_str, bdd_to_str, bdd_var_to_str, bdd_pick_unsupported};
 use driver_set::find_driver_set;
+use decision_tree::decision_tree;
 
 
 mod driver_set;
 mod utils;
 mod symbolic_sync_graph;
 mod ibmfa_computations;
+mod decision_tree;
 
 
 fn compute_attrs_map(attrs: &[GraphColoredVertices])
@@ -84,20 +88,29 @@ fn main() {
     // Print the parametrized update functions
     for pupdate_function in sync_graph.get_pupdate_functions() {
         let parametrizations = pupdate_function.get_parametrizations();
-        for parametrization in parametrizations.sat_clauses() {
-            println!("{}", valuation_to_str(
-                    &parametrization, sync_graph.symbolic_context()));
+        println!("{}", 
+            bdd_to_str(&parametrizations, sync_graph.symbolic_context()));
+
+        let pars = sync_graph.get_all_false()
+            .project(&Vec::from_iter(parametrizations.support_set()))
+            .and(parametrizations);
+
+        for parametrization in pars.sat_valuations() {
+            println!("Parametrization: {}", valuation_to_str(
+                    &parametrization,
+                    parametrizations.support_set(),
+                    sync_graph.symbolic_context()));
             let f = pupdate_function.restricted(&parametrization);
-            println!("\t{}", bdd_to_str(&f, sync_graph.symbolic_context()));
+            println!("Update function: {}",
+                bdd_to_str(&f, sync_graph.symbolic_context()));
 
             for valuation in f.sat_clauses() {
-                println!("\t{}", valuation_to_str(
+                println!("\t{}", partial_valuation_to_str(
                         &valuation, sync_graph.symbolic_context()));
             }
         }
         println!();
     }
-
 
     // Compute the strongest driver set in general
     let iterations = 10;
@@ -151,15 +164,48 @@ fn main() {
     let attr = ["v_miR_9", "v_zic5"];
     let attr_vertices = attr_from_str(&attr, &sync_graph);
 
-    println!("{}", vertices_to_str(
+    println!("Attractor: {}", vertices_to_str(
             &attr_vertices, sync_graph.symbolic_context()));
-    println!("{}", bdd_to_str(
+    println!("Colors: {}", bdd_to_str(
             attrs_map[&attr_vertices].as_bdd(), sync_graph.symbolic_context()));
 
+    let colors = &attrs_map[&attr_vertices];
     find_driver_set(
         &sync_graph,
         iterations,
-        Some((&attr_vertices, &attrs_map[&attr_vertices])),
+        Some((&attr_vertices, &colors)),
         true
     );
+
+    for fix_val in [false, true] {
+        let colors = colors.copy(
+            colors.as_bdd().var_select(
+                sync_graph
+                    .symbolic_context()
+                    .bdd_variable_set()
+                    .var_by_name("f_v_miR_9[1,0]")
+                    .unwrap(),
+                fix_val
+            )
+        );
+
+        println!();
+        println!("Colors: {}", bdd_to_str(
+            colors.as_bdd(), sync_graph.symbolic_context()));
+        find_driver_set(
+            &sync_graph,
+            iterations,
+            Some((&attr_vertices, &colors)),
+            true
+        );
+    }
+
+
+    println!();
+    let tree = decision_tree(
+        &sync_graph,
+        iterations,
+        (&attr_vertices, &attrs_map[&attr_vertices])
+    );
+    println!("{tree:?}");
 }

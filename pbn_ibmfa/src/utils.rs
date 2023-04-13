@@ -20,6 +20,14 @@ pub fn attr_from_str(attr_str: &[&str], sync_graph: &SymbSyncGraph)
             |acc, (var_id, val)| acc.fix_network_variable(var_id, val))
 }
 
+pub fn bdd_pick_unsupported(bdd: Bdd, variables: &[BddVariable]) -> Bdd {
+    let support_set = bdd.support_set();
+    variables.iter()
+        .filter(|bdd_var| !support_set.contains(bdd_var))
+        .fold(bdd, |acc, bdd_var| acc.var_pick(*bdd_var))
+}
+
+
 pub fn bdd_to_str(bdd: &Bdd, context: &SymbolicContext) -> String {
     format!("{}", bdd.to_boolean_expression(context.bdd_variable_set()))
 }
@@ -29,17 +37,26 @@ pub fn bdd_var_to_str(bdd_var: BddVariable, context: &SymbolicContext)
     context.bdd_variable_set().name_of(bdd_var)
 }
 
-pub fn valuation_to_str(
+pub fn partial_valuation_to_str(
     valuation: &BddPartialValuation,
     context: &SymbolicContext)
 -> String {
-    format!("{:?}", valuation
-        .to_values()
-        .iter()
+    format!("[ {}]", valuation.to_values().iter()
         .map(|&(bdd_var, val)|
-            format!("{}={}", bdd_var_to_str(bdd_var, &context), val))
-        .collect::<Vec<_>>()
-    )
+            format!("{}={} ", bdd_var_to_str(bdd_var, &context), val))
+        .collect::<String>())
+}
+
+pub fn valuation_to_str(
+    valuation: &BddValuation,
+    support_set: impl IntoIterator<Item = BddVariable>,
+    context: &SymbolicContext)
+-> String {
+    format!("[ {}]", support_set.into_iter()
+        .map(|bdd_var| format!("{}{} ",
+            if valuation[bdd_var] { "" } else { "!" },
+            bdd_var_to_str(bdd_var, context)))
+        .collect::<String>())
 }
 
 pub fn vertices_to_str(vertices: &GraphVertices, context: &SymbolicContext)
