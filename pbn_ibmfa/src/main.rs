@@ -92,13 +92,13 @@ fn main() {
             bdd_to_str(&parametrizations, sync_graph.symbolic_context()));
 
         let pars = sync_graph.get_all_false()
-            .project(&Vec::from_iter(parametrizations.support_set()))
+            .project(pupdate_function.get_parameters())
             .and(parametrizations);
 
         for parametrization in pars.sat_valuations() {
             println!("Parametrization: {}", valuation_to_str(
                     &parametrization,
-                    parametrizations.support_set(),
+                    pupdate_function.get_parameters().iter().copied(),
                     sync_graph.symbolic_context()));
             let f = pupdate_function.restricted(&parametrization);
             println!("Update function: {}",

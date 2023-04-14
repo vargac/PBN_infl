@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use biodivine_lib_param_bn::{BooleanNetwork};
+use biodivine_lib_param_bn::{BooleanNetwork, VariableId, FnUpdate};
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use biodivine_lib_bdd::{Bdd, BddVariable, BddValuation};
 
@@ -16,10 +16,17 @@ mod graph_operations;
 pub struct ParedUpdateFunction {
     function: Bdd,
     parametrizations: Bdd,
+    par_bdd_vars: Vec<BddVariable>,
 }
 
 impl ParedUpdateFunction {
-    fn new(update_function: &Bdd, unit_bdd: &Bdd) -> ParedUpdateFunction {
+    fn new(
+        update_function: &Bdd,
+        unit_bdd: &Bdd,
+        context: &SymbolicContext,
+        fn_update: &Option<FnUpdate>,
+        var_id: VariableId)
+    -> ParedUpdateFunction {
         let support_set = update_function.support_set();
         let mut parametrizations = unit_bdd.clone();
         for bdd_var in unit_bdd.support_set() {
@@ -27,9 +34,27 @@ impl ParedUpdateFunction {
                 parametrizations = parametrizations.var_project(bdd_var);
             }
         }
+
+        let par_bdd_vars: Vec<BddVariable>;
+        if let Some(fn_update) = fn_update {
+            par_bdd_vars = fn_update.collect_parameters().iter()
+                .map(|par_id| {
+                    let table = context.get_explicit_function_table(*par_id);
+                    table.into_iter().map(|(_, bdd_var)| bdd_var)
+                })
+                .flatten()
+                .collect::<Vec<_>>();
+        } else {
+            let table = context.get_implicit_function_table(var_id);
+            par_bdd_vars = table.into_iter()
+                .map(|(_, bdd_var)| bdd_var)
+                .collect::<Vec<_>>();
+        }
+
         ParedUpdateFunction {
             function: update_function.and(&parametrizations),
             parametrizations,
+            par_bdd_vars,
         }
     }
 
@@ -41,8 +66,12 @@ impl ParedUpdateFunction {
         &self.parametrizations
     }
 
+    pub fn get_parameters(&self) -> &[BddVariable] {
+        &self.par_bdd_vars
+    }
+
     pub fn restricted(&self, restriction: &BddValuation) -> Bdd {
-        self.parametrizations.support_set().iter()
+        self.par_bdd_vars.iter()
             .fold(self.function.clone(),
                 |acc, &bdd_var| acc.var_restrict(bdd_var, restriction[bdd_var]))
     }
@@ -121,8 +150,16 @@ impl SymbSyncGraph {
                                                     &bn, &context).unwrap();
 
         let pupdate_functions = update_functions.iter()
-            .map(|fun| ParedUpdateFunction::new(fun, &unit_bdd))
-            .collect::<Vec<_>>();
+            .enumerate()
+            .map(|(i, fun)| {
+                let var_id = VariableId::from_index(i);
+                ParedUpdateFunction::new(
+                    fun,
+                    &unit_bdd,
+                    &context,
+                    bn.get_update_function(var_id),
+                    var_id)
+            }).collect::<Vec<_>>();
 
         let all_false_bdd = Bdd::from(
             BddValuation::all_false(context.bdd_variable_set().num_vars()));
