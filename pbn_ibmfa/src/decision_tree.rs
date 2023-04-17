@@ -29,7 +29,7 @@ impl DecisionTree {
         match self {
             DecisionTree::Node(node) => {
                 let indent = " ".repeat(level);
-                format!("{indent}{}\n{indent}-0- {}\n{indent}-1- {}",
+                format!("{}\n{indent}-0- {}\n{indent}-1- {}",
                     bdd_var_to_str(node.color_fix, context),
                     node.childs[0].to_str_rec(level + 4, context),
                     node.childs[1].to_str_rec(level + 4, context))
