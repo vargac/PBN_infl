@@ -2,8 +2,9 @@ use biodivine_lib_bdd::BddVariable;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphVertices, GraphColors};
 
 use crate::ibmfa_computations::minimize_entropy;
-use crate::driver_set::{PBNFix, UnitFix, fixes::{DriverSet, UnitParameterFix}};
-use crate::{SymbSyncGraph, find_driver_set};
+use crate::driver_set::{find_driver_set,
+    PBNFix, UnitFix, fixes::{DriverSet, UnitParameterFix}};
+use crate::symbolic_sync_graph::SymbSyncGraph;
 
 #[derive(Clone, Debug)]
 pub struct DecisionNode {

@@ -4,88 +4,21 @@
 use std::{env, process, fs};
 use std::collections::{HashMap, HashSet};
 
-use biodivine_lib_param_bn::BooleanNetwork;
+use biodivine_lib_param_bn::{BooleanNetwork, FnUpdate};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::
     {GraphColoredVertices, GraphColors, GraphVertices};
 use biodivine_lib_bdd::BddVariable;
 
-use symbolic_sync_graph::SymbSyncGraph;
-use utils::{partial_valuation_to_str, valuation_to_str, vertices_to_str,
-            attr_from_str, bdd_to_str, bdd_var_to_str, bdd_pick_unsupported};
-use driver_set::find_driver_set;
-use decision_tree::decision_tree;
+use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
+use pbn_ibmfa::utils::{partial_valuation_to_str, valuation_to_str,
+    vertices_to_str, attr_from_str, bdd_to_str, bdd_var_to_str,
+    bdd_pick_unsupported};
+use pbn_ibmfa::driver_set::find_driver_set;
+use pbn_ibmfa::decision_tree::decision_tree;
 
 
-mod driver_set;
-mod utils;
-mod symbolic_sync_graph;
-mod ibmfa_computations;
-mod decision_tree;
-
-
-fn compute_attrs_map(attrs: &[GraphColoredVertices])
--> HashMap<GraphVertices, GraphColors> {
-    let mut attrs_map = HashMap::new();
-    for attr in attrs {
-        let mut attr = attr.clone();
-        while !attr.is_empty() {
-            let mut wanted_vertices = attr
-                .intersect_colors(&attr.colors().pick_singleton())
-                .vertices();
-
-            let one_attr_vertices = wanted_vertices.clone();
-
-            let other_vertices = attr.vertices().minus(&one_attr_vertices);
-            let mut one_attr_colors = attr
-                .colors()
-                .minus(&attr.intersect_vertices(&other_vertices).colors());
-
-            while !wanted_vertices.is_empty() { // TODO just iterate over them
-                let one_attr_vertex = wanted_vertices.pick_singleton();
-                one_attr_colors = one_attr_colors.intersect(
-                    &attr.intersect_vertices(&wanted_vertices).colors());
-                wanted_vertices = wanted_vertices.minus(&one_attr_vertex);
-            }
-
-            attr = attr.minus_colors(&one_attr_colors);
-
-            attrs_map
-                .entry(one_attr_vertices)
-                .and_modify(|colors: &mut GraphColors|
-                    *colors = colors.union(&one_attr_colors))
-                .or_insert(one_attr_colors);
-        }
-    }
-    attrs_map
-}
-
-
-fn main() {
-    // Load the model from a file
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Use with one parameter -- path to the .aeon model");
-        process::exit(1);
-    }
-    let model_string = fs::read_to_string(&args[1]).unwrap_or_else(|err| {
-        eprintln!("Cannot read the file, err: {}", err);
-        process::exit(1);
-    });
-    let model = BooleanNetwork::try_from(model_string.as_str()).unwrap();
-
-    // Print info about the model
-    println!("vars: {}, pars: {}", model.num_vars(), model.num_parameters());
-    println!("vars: {:?}", model.variables()
-        .map(|var_id| model.get_variable_name(var_id))
-        .collect::<Vec<_>>()
-    );
-    println!();
-
-    // Compute the symbolic synchronous transition graph
-    let sync_graph = SymbSyncGraph::new(model);
-
-    // Print the parametrized update functions
+fn print_update_functions(sync_graph: &SymbSyncGraph) {
     for pupdate_function in sync_graph.get_pupdate_functions() {
         let parametrizations = pupdate_function.get_parametrizations();
         println!("{}", 
@@ -111,14 +44,45 @@ fn main() {
         }
         println!();
     }
+}
 
-    // Compute the strongest driver set in general
-    let iterations = 10;
-    let (pbn_fix, probs) = find_driver_set(&sync_graph, iterations, None, true);
 
-    println!("Final:\n{}\n{:?}",
-        pbn_fix.to_str(&sync_graph.symbolic_context()), probs);
+fn main() {
+    // Load the model from a file
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        eprintln!("Use with one parameter -- path to the .aeon model");
+        process::exit(1);
+    }
+    let model_string = fs::read_to_string(&args[1]).unwrap_or_else(|err| {
+        eprintln!("Cannot read the file, err: {}", err);
+        process::exit(1);
+    });
+    let mut model = BooleanNetwork::try_from(model_string.as_str()).unwrap();
+
+    // Add self regulation for input nodes
+    // We don't want to fix them via color but via variable
+    for variable in model.variables() {
+        if model.regulators(variable).is_empty()
+        && model.get_update_function(variable).is_none() {
+            let name = model.get_variable_name(variable);
+            let regulation = format!("{} -> {}", name, name);
+            model.as_graph_mut().add_string_regulation(&regulation).unwrap();
+            model.add_update_function(
+                variable, FnUpdate::Var(variable)).unwrap();
+        }
+    }
+
+    // Print info about the model
+    println!("vars: {}, pars: {}", model.num_vars(), model.num_parameters());
+    println!("vars: {:?}", model.variables()
+        .map(|var_id| model.get_variable_name(var_id))
+        .collect::<Vec<_>>()
+    );
     println!();
+
+    // Compute the symbolic synchronous transition graph
+    let sync_graph = SymbSyncGraph::new(model);
 
     /* TODO add as a test
     let init_state = vec![false, false, false, false, false, false];
@@ -136,8 +100,12 @@ fn main() {
     */
 
     // Compute the attractors
-    let attrs = sync_graph.attractors();
-    let attrs_map = compute_attrs_map(&attrs);
+    let attrs = sync_graph.fixed_point_attractors();
+    let attrs_map = attrs.iter()
+        .map(|attr| (attr.vertices(), attr.colors()))
+        .collect::<HashMap<GraphVertices, GraphColors>>();
+
+    let iterations = 10;
 
     println!("Attractors: {}", attrs_map.len());
     for (i, (attr, colors)) in attrs_map.iter().enumerate() {

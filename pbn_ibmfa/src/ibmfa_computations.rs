@@ -102,7 +102,7 @@ fn ibmfa_step(
                     .restricted_parametrizations(pbn_fix.colors());
 
                 let pars = sync_graph.get_all_false()
-                    .project(&Vec::from_iter(parametrizations.support_set()))
+                    .project(pupdate_function.get_parameters())
                     .and(&parametrizations);
 
                 pars.sat_valuations()

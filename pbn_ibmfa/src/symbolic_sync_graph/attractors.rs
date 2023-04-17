@@ -1,4 +1,7 @@
-use biodivine_lib_param_bn::{symbolic_async_graph::GraphColoredVertices,
+use std::collections::HashMap;
+
+use biodivine_lib_param_bn::{
+    symbolic_async_graph::{GraphColoredVertices, GraphVertices, GraphColors},
     biodivine_std::traits::Set};
 
 use super::SymbSyncGraph;
@@ -52,4 +55,57 @@ impl SymbSyncGraph {
     pub fn attractors(&self) -> Vec<GraphColoredVertices> {
         self.attractors_in(&self.unit_colored_vertices())
     }
+
+    pub fn fixed_point_attractors_in(&self, set: &GraphColoredVertices)
+    -> Vec<GraphColoredVertices> {
+        let attrs = set.copy(set.as_bdd()
+            .and(&self.total_update_function)
+            .and(&self.extra_state_var_equivalence)
+            .project(self.context.all_extra_state_variables()));
+        attrs.raw_projection(self.context.parameter_variables())
+            .iter()
+            .map(|valuation|
+                set.copy(attrs.as_bdd().select(&valuation.to_values())))
+            .collect::<Vec<_>>()
+    }
+
+    pub fn fixed_point_attractors(&self) -> Vec<GraphColoredVertices> {
+        self.fixed_point_attractors_in(&self.unit_colored_vertices())
+    }
+}
+
+pub fn compute_attrs_map(attrs: &[GraphColoredVertices])
+-> HashMap<GraphVertices, GraphColors> {
+    let mut attrs_map = HashMap::new();
+    for attr in attrs {
+        let mut attr = attr.clone();
+        while !attr.is_empty() {
+            let mut wanted_vertices = attr
+                .intersect_colors(&attr.colors().pick_singleton())
+                .vertices();
+
+            let one_attr_vertices = wanted_vertices.clone();
+
+            let other_vertices = attr.vertices().minus(&one_attr_vertices);
+            let mut one_attr_colors = attr
+                .colors()
+                .minus(&attr.intersect_vertices(&other_vertices).colors());
+
+            while !wanted_vertices.is_empty() {
+                let one_attr_vertex = wanted_vertices.pick_singleton();
+                one_attr_colors = one_attr_colors.intersect(
+                    &attr.intersect_vertices(&wanted_vertices).colors());
+                wanted_vertices = wanted_vertices.minus(&one_attr_vertex);
+            }
+
+            attr = attr.minus_colors(&one_attr_colors);
+
+            attrs_map
+                .entry(one_attr_vertices)
+                .and_modify(|colors: &mut GraphColors|
+                    *colors = colors.union(&one_attr_colors))
+                .or_insert(one_attr_colors);
+        }
+    }
+    attrs_map
 }
