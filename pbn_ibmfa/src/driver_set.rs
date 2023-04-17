@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, GraphVertices};
 use biodivine_lib_bdd::Bdd;
@@ -86,12 +88,15 @@ fn prepare_fixes(
 }
 
 fn filter_fixes(fixes: &[UnitFix], pbn_fix: &PBNFix) -> Vec<UnitFix> {
+    // TODO benchmark more, if it really has a meaning for larger models
+    let mut color_fixes = HashSet::new();
     fixes.iter()
         .filter(|fix| match fix {
             UnitFix::Parameter(UnitParameterFix { bdd_var, value }) => {
                 let before = pbn_fix.colors();
                 let after = before.var_select(*bdd_var, *value);
                 !after.is_false() && after != before
+                    && color_fixes.insert(after)
             },
             UnitFix::Vertex(UnitVertexFix { var_id, .. }) =>
                 pbn_fix.get_vertex(*var_id).is_none()
