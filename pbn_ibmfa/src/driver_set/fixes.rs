@@ -37,21 +37,29 @@ pub struct PBNFix {
 }
 
 
+pub fn driver_set_to_str(
+    driver_set: &DriverSet,
+    context: &SymbolicContext)
+-> String {
+    format!("{{ {}}}", driver_set.iter()
+        .map(|(&var_id, &value)| format!("{} ",
+            (UnitVertexFix { var_id, value }).to_str(&context)))
+        .collect::<String>())
+}
+
 impl UnitVertexFix {
     pub fn to_str(&self, context: &SymbolicContext) -> String {
         let bdd_var = context.get_state_variable(self.var_id);
-        format!("{}({})={}",
+        format!("{}={}",
             bdd_var_to_str(bdd_var, &context),
-            self.var_id.to_index(),
             if self.value { 1 } else { 0 })
     }
 }
 
 impl UnitParameterFix {
     pub fn to_str(&self, context: &SymbolicContext) -> String {
-        format!("{}({})={}",
+        format!("{}={}",
             bdd_var_to_str(self.bdd_var, &context),
-            self.bdd_var,
             if self.value { 1 } else { 0 })
     }
 }
@@ -129,12 +137,6 @@ impl PBNFix {
         }
     }
 
-    pub fn driver_set_to_str(&self, context: &SymbolicContext) -> String {
-        format!("{{ {}}}", self.driver_set.iter()
-            .map(|(&var_id, &value)| format!("{} ",
-                (UnitVertexFix { var_id, value }).to_str(&context)))
-            .collect::<String>())
-    }
 
     pub fn par_fixes_to_str(&self, context: &SymbolicContext) -> String {
         format!("{{ {}}}", self.parameter_fixes.iter()
@@ -148,7 +150,7 @@ impl PBNFix {
 
     pub fn to_str(&self, context: &SymbolicContext) -> String {
         format!("Driver-set: {}\nParameter-fixes: {}",
-            self.driver_set_to_str(&context),
+            driver_set_to_str(&self.driver_set, &context),
             self.par_fixes_to_str(&context))
     }
 }

@@ -34,7 +34,7 @@ pub fn bdd_to_str(bdd: &Bdd, context: &SymbolicContext) -> String {
 
 pub fn bdd_var_to_str(bdd_var: BddVariable, context: &SymbolicContext)
 -> String {
-    context.bdd_variable_set().name_of(bdd_var)
+    format!("{}({bdd_var})", context.bdd_variable_set().name_of(bdd_var))
 }
 
 pub fn partial_valuation_to_str(

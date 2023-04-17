@@ -1,10 +1,12 @@
 use biodivine_lib_bdd::BddVariable;
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphVertices, GraphColors};
+use biodivine_lib_param_bn::symbolic_async_graph::
+    {GraphVertices, GraphColors, SymbolicContext};
 
 use crate::ibmfa_computations::minimize_entropy;
-use crate::driver_set::{find_driver_set,
+use crate::driver_set::{find_driver_set, driver_set_to_str,
     PBNFix, UnitFix, fixes::{DriverSet, UnitParameterFix}};
 use crate::symbolic_sync_graph::SymbSyncGraph;
+use crate::utils::bdd_var_to_str;
 
 #[derive(Clone, Debug)]
 pub struct DecisionNode {
@@ -18,12 +20,33 @@ pub enum DecisionTree {
     Leaf(DriverSet),
 }
 
+impl DecisionTree {
+    pub fn to_str(&self, context: &SymbolicContext) -> String {
+        self.to_str_rec(0, context)
+    }
+
+    fn to_str_rec(&self, level: usize, context: &SymbolicContext) -> String {
+        match self {
+            DecisionTree::Node(node) => {
+                let indent = " ".repeat(level);
+                format!("{indent}{}\n{indent}-0- {}\n{indent}-1- {}",
+                    bdd_var_to_str(node.color_fix, context),
+                    node.childs[0].to_str_rec(level + 4, context),
+                    node.childs[1].to_str_rec(level + 4, context))
+                },
+            DecisionTree::Leaf(driver_set) =>
+                driver_set_to_str(driver_set, context),
+        }
+    }
+}
+
 pub fn decision_tree(
     sync_graph: &SymbSyncGraph,
     iterations: usize,
     attr: (&GraphVertices, &GraphColors),
 ) -> DecisionTree {
     // TODO otestovat, ci to pride k danemu atraktoru
+    // alebo radsej to dat ako podmienku pri hladani minimalise_entropy
     let (pbn_fix, _) =
         find_driver_set(&sync_graph, iterations, Some(attr), false);
     decision_tree_recursive(&sync_graph, iterations, attr, pbn_fix)

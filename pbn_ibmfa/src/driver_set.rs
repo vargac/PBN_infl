@@ -5,7 +5,7 @@ use biodivine_lib_bdd::Bdd;
 use crate::symbolic_sync_graph::SymbSyncGraph;
 use crate::ibmfa_computations::minimize_entropy;
 use fixes::{UnitVertexFix, UnitParameterFix};
-pub use fixes::{PBNFix, UnitFix};
+pub use fixes::{PBNFix, UnitFix, driver_set_to_str};
 
 
 pub mod fixes;
