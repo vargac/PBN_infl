@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use biodivine_lib_bdd::{Bdd, BddVariable, BddPartialValuation, BddValuation};
-use biodivine_lib_param_bn::symbolic_async_graph::
-    {SymbolicContext, GraphVertices};
+use biodivine_lib_param_bn::{BooleanNetwork, FnUpdate,
+    symbolic_async_graph::{SymbolicContext, GraphVertices}};
 
 use crate::symbolic_sync_graph::SymbSyncGraph;
 
@@ -18,6 +18,20 @@ pub fn attr_from_str(attr_str: &[&str], sync_graph: &SymbSyncGraph)
 //TODO .fold(sync_graph().symbolic_context().mk_constant(true))
         .fold(sync_graph.unit_colored_vertices().vertices(),
             |acc, (var_id, val)| acc.fix_network_variable(var_id, val))
+}
+
+pub fn add_self_regulations(mut model: BooleanNetwork) -> BooleanNetwork {
+    for variable in model.variables() {
+        if model.regulators(variable).is_empty()
+        && model.get_update_function(variable).is_none() {
+            let name = model.get_variable_name(variable);
+            let regulation = format!("{} -> {}", name, name);
+            model.as_graph_mut().add_string_regulation(&regulation).unwrap();
+            model.add_update_function(
+                variable, FnUpdate::Var(variable)).unwrap();
+        }
+    }
+    model
 }
 
 pub fn bdd_pick_unsupported(bdd: Bdd, variables: &[BddVariable]) -> Bdd {

@@ -2,7 +2,6 @@ use biodivine_lib_bdd::BddPartialValuation;
 
 use crate::symbolic_sync_graph::{SymbSyncGraph, VarIndex};
 use crate::driver_set::{PBNFix, UnitFix};
-use crate::utils::bdd_pick_unsupported;
 
 
 pub fn entropy(probs: &[f32]) -> f32 {

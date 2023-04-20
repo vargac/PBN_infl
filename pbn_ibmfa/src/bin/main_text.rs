@@ -10,7 +10,7 @@ use biodivine_lib_bdd::BddVariable;
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::utils::{partial_valuation_to_str, valuation_to_str,
     vertices_to_str, attr_from_str, bdd_to_str, bdd_var_to_str,
-    bdd_pick_unsupported};
+    bdd_pick_unsupported, add_self_regulations};
 use pbn_ibmfa::driver_set::find_driver_set;
 use pbn_ibmfa::decision_tree::decision_tree;
 
@@ -26,20 +26,8 @@ fn main() {
         eprintln!("Cannot read the file, err: {}", err);
         process::exit(1);
     });
-    let mut model = BooleanNetwork::try_from(model_string.as_str()).unwrap();
-
-    // Add self regulation for input nodes
-    // We don't want to fix them via color but via variable
-    for variable in model.variables() {
-        if model.regulators(variable).is_empty()
-        && model.get_update_function(variable).is_none() {
-            let name = model.get_variable_name(variable);
-            let regulation = format!("{} -> {}", name, name);
-            model.as_graph_mut().add_string_regulation(&regulation).unwrap();
-            model.add_update_function(
-                variable, FnUpdate::Var(variable)).unwrap();
-        }
-    }
+    let model = BooleanNetwork::try_from(model_string.as_str()).unwrap();
+    let model = add_self_regulations(model.unwrap());
 
     // Print info about the model
     println!("vars: {}, pars: {}", model.num_vars(), model.num_parameters());
