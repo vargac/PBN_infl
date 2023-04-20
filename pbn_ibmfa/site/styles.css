@@ -48,14 +48,24 @@ label[for=connectionPort] {
     text-align: right;
 }
 
-#notConnected {
+#statusShow {
+    display: block;
+    padding: 0.5em;
+}
+
+.notConnected {
     background-color: pink;
     color: red;
 }
 
-#connected {
+.connected {
     background-color: lightgreen;
     color: green;
+}
+
+.computing {
+    background-color: yellow;
+    color: orange;
 }
 
 #info {
