@@ -129,5 +129,10 @@ window.onload = function() {
     function onAttractorSelect(id) {
         attractors.table.lock = true;
         ws.send(`TREE ${id}`);
+        showComputing();
+        ws.onmessage = function(event) {
+            console.log(event.data);
+            showConnected();
+        };
     }
 };

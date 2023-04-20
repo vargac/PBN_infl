@@ -20,6 +20,16 @@ pub enum DecisionTree {
     Leaf(DriverSet),
 }
 
+impl DecisionNode {
+    pub fn get_childs(&self) -> &[Box<DecisionTree>; 2] {
+        &self.childs
+    }
+
+    pub fn get_fix(&self) -> BddVariable {
+        self.color_fix
+    }
+}
+
 impl DecisionTree {
     pub fn to_str(&self, context: &SymbolicContext) -> String {
         self.to_str_rec(0, context)

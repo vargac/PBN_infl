@@ -1,7 +1,10 @@
 extern crate websocket;
 
+use std::collections::HashMap;
+
 use pbn_ibmfa::utils::add_self_regulations;
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
+use pbn_ibmfa::decision_tree::{DecisionTree, decision_tree};
 
 use biodivine_lib_param_bn::{BooleanNetwork,
     symbolic_async_graph::{GraphColoredVertices, SymbolicContext}};
@@ -9,9 +12,12 @@ use biodivine_lib_param_bn::{BooleanNetwork,
 use websocket::{sync::{Server, Client, Stream}, OwnedMessage};
 
 
+const ITERATIONS: usize = 10;
+
 struct SessionData {
     sync_graph: Option<SymbSyncGraph>,
     attrs: Option<Vec<GraphColoredVertices>>,
+    dtree_cache: HashMap<usize, DecisionTree>,
 }
 
 impl SessionData {
@@ -19,6 +25,7 @@ impl SessionData {
         SessionData {
             sync_graph: None,
             attrs: None,
+            dtree_cache: HashMap::new(),
         }
     }
 }
@@ -51,6 +58,41 @@ fn attrs_to_msg(attrs: &[GraphColoredVertices], context: &SymbolicContext)
     OwnedMessage::Text(msg_str)
 }
 
+fn tree_to_msg(tree: &DecisionTree,
+    context: &SymbolicContext
+) -> OwnedMessage {
+    let mut buffer = String::new();
+    tree_to_str_rec(tree, context, &mut buffer);
+    OwnedMessage::Text(buffer)
+}
+
+fn tree_to_str_rec(
+    tree: &DecisionTree,
+    context: &SymbolicContext,
+    out: &mut String
+) {
+    let bdd_var_set = context.bdd_variable_set();
+    match tree {
+        DecisionTree::Leaf(driver_set) => {
+            out.push('[');
+            for (var_id, val) in driver_set {
+                out.push(' ');
+                out.push_str(&bdd_var_set.name_of(
+                        context.get_state_variable(*var_id)));
+                out.push('=');
+                out.push(if *val { '1' } else { '0' });
+            }
+            out.push_str(" ]");
+        },
+        DecisionTree::Node(node) => {
+            out.push_str(&bdd_var_set.name_of(node.get_fix()));
+            out.push(' ');
+            tree_to_str_rec(&node.get_childs()[0], context, out);
+            tree_to_str_rec(&node.get_childs()[1], context, out);
+        }
+    }
+}
+
 fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
 -> Result<OwnedMessage, String> {
     let sync_graph = session_data.sync_graph.as_ref().unwrap();
@@ -63,11 +105,27 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
                 let msg = attrs_to_msg(&attrs, sync_graph.symbolic_context());
                 session_data.attrs = Some(attrs);
                 Ok(msg)
+            } else if msg.starts_with("TREE ") {
+                match &session_data.attrs {
+                    None => Err(format!("Error: '{msg:?}' before attractors")),
+                    Some(attrs) => {
+                        let id = msg.rsplit(' ').next().unwrap()
+                            .parse::<usize>().unwrap();
+                        let dtree = session_data.dtree_cache
+                            .entry(id)
+                            .or_insert_with(|| {
+                                let attr = &attrs[id];
+                                decision_tree(&sync_graph, ITERATIONS,
+                                    (&attr.vertices(), &attr.colors()))
+                            });
+                        Ok(tree_to_msg(&dtree, sync_graph.symbolic_context()))
+                    }
+                }
             } else {
-                Err(format!("Error: unexpected command '{:?}'", msg))
+                Err(format!("Error: unexpected command '{msg:?}'"))
             }
         },
-        _ => Err(format!("Error: unexpected message type '{:?}'", msg)),
+        _ => Err(format!("Error: unexpected message type '{msg:?}'")),
     }
 }
 
@@ -104,6 +162,11 @@ fn session_loop<S: Stream>(
         OwnedMessage::Close(_) => {
             println!("{:?}", msg);
             return false;
+        },
+        // Ping
+        OwnedMessage::Ping(data) => {
+            println!("---ping---");
+            client.send_message(&OwnedMessage::Pong(data)).unwrap();
         },
         // Command
         _ => {
