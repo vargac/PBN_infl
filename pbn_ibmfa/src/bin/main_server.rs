@@ -8,7 +8,7 @@ use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::decision_tree::{DecisionTree, decision_tree};
 
 use biodivine_lib_param_bn::{BooleanNetwork,
-    symbolic_async_graph::{GraphColoredVertices, SymbolicContext}};
+    symbolic_async_graph::{GraphColoredVertices, GraphColors, SymbolicContext}};
 
 use websocket::{sync::{Server, Client, Stream}, OwnedMessage};
 
@@ -59,16 +59,19 @@ fn attrs_to_msg(attrs: &[GraphColoredVertices], context: &SymbolicContext)
     OwnedMessage::Text(msg_str)
 }
 
-fn tree_to_msg(tree: &DecisionTree,
+fn tree_to_msg(
+    tree: &DecisionTree,
+    colors: &GraphColors,
     context: &SymbolicContext
 ) -> OwnedMessage {
     let mut buffer = String::new();
-    tree_to_str_rec(tree, context, &mut buffer);
+    tree_to_str_rec(tree, colors, context, &mut buffer);
     OwnedMessage::Text(buffer)
 }
 
 fn tree_to_str_rec(
     tree: &DecisionTree,
+    colors: &GraphColors,
     context: &SymbolicContext,
     out: &mut String
 ) {
@@ -86,11 +89,21 @@ fn tree_to_str_rec(
             out.push_str(" ]");
         },
         DecisionTree::Node(node) => {
-            out.push_str(&bdd_var_set.name_of(node.get_fix()));
+            let fix_var = node.get_fix();
+            let fix_false = colors.copy(
+                colors.as_bdd().var_select(fix_var, false));
+            let fix_true = colors.copy(
+                colors.as_bdd().var_select(fix_var, true));
+
+            out.push_str(&bdd_var_set.name_of(fix_var));
             out.push(' ');
-            tree_to_str_rec(&node.get_childs()[0], context, out);
+            out.push_str(&fix_false.exact_cardinality().to_str_radix(10));
             out.push(' ');
-            tree_to_str_rec(&node.get_childs()[1], context, out);
+            out.push_str(&fix_true.exact_cardinality().to_str_radix(10));
+            out.push(' ');
+            tree_to_str_rec(&node.get_childs()[0], &fix_false, context, out);
+            out.push(' ');
+            tree_to_str_rec(&node.get_childs()[1], &fix_true, context, out);
         }
     }
 }
@@ -125,7 +138,8 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
                                 decision_tree(&sync_graph, ITERATIONS,
                                     (&attr.vertices(), &attr.colors()))
                             });
-                        Ok(tree_to_msg(&dtree, sync_graph.symbolic_context()))
+                        Ok(tree_to_msg(&dtree, &attrs[id].colors(),
+                                       sync_graph.symbolic_context()))
                     }
                 }
             } else {

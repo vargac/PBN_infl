@@ -81,15 +81,18 @@ class DecisionTree {
         }
 
         let decision = tree[0];
-        let read = 1;
+        let colors_false = tree[1], colors_true = tree[2];
+        let read = 3;
         read += this.parse(tree.slice(read, tree.length), nodes, edges);
         let left = nodes[nodes.length - 1].id;
         read += this.parse(tree.slice(read, tree.length), nodes, edges);
         let right = nodes[nodes.length - 1].id;
         let current = right + 1;
         nodes.push({id: current, label: decision});
-        edges.push({from: current, to: left, color: 'red', label: '0'});
-        edges.push({from: current, to: right, color: 'green', label: '1'});
+        edges.push({from: current, to: left,
+                    color: 'red', label: colors_false, title: colors_false});
+        edges.push({from: current, to: right,
+                    color: 'green', label: colors_true, title: colors_true});
         return read;
     }
 }
