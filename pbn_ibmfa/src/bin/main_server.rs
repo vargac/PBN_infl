@@ -1,3 +1,4 @@
+// TODO make the "computing" state interruptible
 extern crate websocket;
 
 use std::collections::HashMap;
@@ -88,6 +89,7 @@ fn tree_to_str_rec(
             out.push_str(&bdd_var_set.name_of(node.get_fix()));
             out.push(' ');
             tree_to_str_rec(&node.get_childs()[0], context, out);
+            out.push(' ');
             tree_to_str_rec(&node.get_childs()[1], context, out);
         }
     }
@@ -109,6 +111,11 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
                 match &session_data.attrs {
                     None => Err(format!("Error: '{msg:?}' before attractors")),
                     Some(attrs) => {
+                        /*
+                        Ok(OwnedMessage::Text(String::from(
+                            "DN1 [ v_her6=0 v_elavl3_HuC=0 ] DN2 [ v_miR_9=0 ] \
+                             [ v_Progenitor=1 v_her6=0 ]")))
+                        */
                         let id = msg.rsplit(' ').next().unwrap()
                             .parse::<usize>().unwrap();
                         let dtree = session_data.dtree_cache

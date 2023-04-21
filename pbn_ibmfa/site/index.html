@@ -9,7 +9,7 @@
 </head>
 <body>
 
-<div id="status" class="sidebar">
+<div id="status" class="column sidebar">
     <h2>Status bar</h2>
     <div class="sidebarElem">
         <span id="statusShow" class="notConnected">Not connected</span>
@@ -29,10 +29,10 @@
         <table>
             <tr>
                 <td align="right"><span id="varsCnt">0</span></td>
-                <td align="right">variables</td>
+                <td align="left">variables</td>
             </tr>
             <tr>
-                <td align="left"><span id="colorsCnt">0</span></td>
+                <td align="right"><span id="colorsCnt">0</span></td>
                 <td align="left">colors</td>
             </tr>
         </table>
@@ -42,8 +42,8 @@
     <input id="startButton" class="sidebarElem" type="button" value="Start computation" hidden>
 </div>
 
-<div class="column">
-    <div id="attractors" class="right" hidden>
+<div class="column left">
+    <div id="attractors" hidden>
         <h3>Attractors</h3>
         <table class="two-color-table">
             <thead>
@@ -59,9 +59,19 @@
     </div>
 </div>
 
+<div class="column right">
+    <div id="decisionTree" hidden>
+        <h3>Driver set</h3>
+        <div id="tree"></div>
+        <input id="layoutButton" type="button" value="Reset layout">
+    </div>
+</div>
 
+
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <script src="clickableTable.js"></script>
 <script src="attractors.js"></script>
+<script src="decisionTree.js"></script>
 <script src="client.js"></script>
 
 </body>

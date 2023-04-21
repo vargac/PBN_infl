@@ -10,6 +10,7 @@ window.onload = function() {
     let infoField        = document.getElementById('info');
     let varsCnt          = document.getElementById('varsCnt');
     let colorsCnt        = document.getElementById('colorsCnt');
+    let treeField        = document.getElementById('decisionTree');
 
     function showConnected() {
         statusShow.className = "connected";
@@ -25,7 +26,7 @@ window.onload = function() {
         connectionPort.removeAttribute('readonly');
         pbnFile.parentNode.hidden = true;
     }
-    function showComputing() {
+    function showComputing() { // TODO nemoze spravit novy request
         statusShow.className = "computing";
         statusShow.innerHTML = "Computing";
     }
@@ -38,6 +39,10 @@ window.onload = function() {
         document.getElementById('attractors'),
         document.getElementById('selectedVar'),
         onAttractorSelect
+    );
+    let decisionTree = new DecisionTree(
+        document.getElementById('tree'),
+        document.getElementById('layoutButton')
     );
     showNotConnected();
 
@@ -55,10 +60,13 @@ window.onload = function() {
 
     function onclose(event) {
         showNotConnected();
+        pbnFile.value = "";
+        file = null;
         startButton.hidden = true;
         infoField.hidden = true;
         attractors.hidden = true;
         attractors.reset();
+        treeField.hidden = true;
     }
 
 
@@ -71,6 +79,8 @@ window.onload = function() {
         startButton.hidden = true;
         attractors.reset();
         attractors.hidden = false;
+        decisionTree.reset();
+        treeField.hidden = false;
 
         ws.send('START');
         showComputing();
@@ -80,6 +90,7 @@ window.onload = function() {
             for (let i = 0; i < data.length / 2; i++) {
                 attractors.add(data[2 * i], data[2 * i + 1]);
             }
+            attractors.table.resize();
             showConnected();
         };
     };
@@ -114,6 +125,8 @@ window.onload = function() {
                     let [_, colors, ...var_names] = event.data.split(' ');
                     attractors.var_names = var_names;
                     attractors.hidden = true;
+                    treeField.hidden = true;
+                    decisionTree.var_names = var_names;
                     infoField.hidden = false;
                     varsCnt.innerHTML = var_names.length;
                     colorsCnt.innerHTML = colors;
@@ -127,11 +140,12 @@ window.onload = function() {
     };
 
     function onAttractorSelect(id) {
-        attractors.table.lock = true;
         ws.send(`TREE ${id}`);
         showComputing();
+        decisionTree.reset();
         ws.onmessage = function(event) {
             console.log(event.data);
+            decisionTree.show(event.data);
             showConnected();
         };
     }

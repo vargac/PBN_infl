@@ -16,6 +16,7 @@ class Attractors {
 
     reset() {
         this.table.reset();
+        this._count = 0;
     }
 
     add(colors, state) {
