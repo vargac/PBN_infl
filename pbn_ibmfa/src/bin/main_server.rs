@@ -1,4 +1,14 @@
-// TODO make the "computing" state interruptible
+// TODO make the "computing" state interruptible (alebo lahsie, len vypisat
+// alertom po F5 pocas computing, ze by si restartovail server)
+// TODO stlpec robustnost
+// TODO leaf node aby sa to zarovnalo
+// TODO ostatne nody vypisat ako target(input1, input2, ...)
+// TODO monospace v leaf nodach aj state stlpci
+// TODO ukazat Petovi Gambosovi ci sa s tym da nieco spravit?
+//
+// TODO benchmarking!!!
+//
+// TODO prerusenie vypoctu len ak fakt budem mat veeela casu
 extern crate websocket;
 
 use std::collections::HashMap;
