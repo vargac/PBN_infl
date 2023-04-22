@@ -52,14 +52,16 @@ class ClickableTable {
         if (!row)
             return;
 
-        if (this._selected) {
-            this._selected.style.backgroundColor = null;
-            this._selected.style.color = null;
-        }
+        if (!this._locked) {
+            if (this._selected) {
+                this._selected.style.backgroundColor = null;
+                this._selected.style.color = null;
+            }
 
-        this._selected = row;
-        this._selected.style.backgroundColor = this._selectColor;
-        this._selected.style.color = 'black';
+            this._selected = row;
+            this._selected.style.backgroundColor = this._selectColor;
+            this._selected.style.color = 'black';
+        }
 
         this._selectCallback(this._selected);
     }

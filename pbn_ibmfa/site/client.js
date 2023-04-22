@@ -85,6 +85,7 @@ window.onload = function() {
         startButton.hidden = true;
         attractors.reset();
         attractors.hidden = false;
+        attractors.table.lock = false;
         decisionTree.reset();
         treeField.hidden = false;
 
@@ -111,11 +112,16 @@ window.onload = function() {
     };
 
     pbnFile.onchange = function(e) {
+        if (statusShow.className == 'computing') {
+            alert('A computation in a process. Cannot open a new model.');
+            return;
+        }
         if (file) {
             if (!confirm("The current model will be overwritten. Proceed?")) {
                 return;
             }
         }
+
         file = e.target.files[0];
         ws.send(file);
         ws.onmessage = function(event) {
@@ -146,13 +152,19 @@ window.onload = function() {
     };
 
     function onAttractorSelect(id) {
+        if (attractors.table.lock) {
+            alert('A computation in a process. Cannot start another one.');
+            return;
+        }
         ws.send(`TREE ${id}`);
         showComputing();
+        attractors.table.lock = true;
         decisionTree.reset();
         ws.onmessage = function(event) {
             console.log(event.data);
             decisionTree.show(event.data);
             showConnected();
+            attractors.table.lock = false;
         };
     }
 };
