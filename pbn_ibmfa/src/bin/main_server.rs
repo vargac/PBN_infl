@@ -5,6 +5,7 @@
 // TODO ostatne nody vypisat ako target(input1, input2, ...)
 // TODO monospace v leaf nodach aj state stlpci
 // TODO ukazat Petovi Gambosovi ci sa s tym da nieco spravit?
+// TODO vsetky unwrapy v tomto kode
 //
 // TODO benchmarking!!!
 //

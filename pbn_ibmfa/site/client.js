@@ -46,19 +46,25 @@ window.onload = function() {
     );
     showNotConnected();
 
+
     function connect(port) {
         ws = new WebSocket(`ws://127.0.0.1:${port}/`);
-        // TODO show message on error
+        ws.timId = setTimeout(
+            () => { alert("Could not connect. (Re)start the server."); },
+            500
+        );
         ws.onopen = onopen;
-        ws.onclose = onclose;
     }
 
     function onopen(event) {
+        clearTimeout(ws.timId);
         showConnected();
         pbnFile.value = "";
+        ws.onclose = onclose;
     }
 
     function onclose(event) {
+        alert("Connection closed by the server.");
         showNotConnected();
         pbnFile.value = "";
         file = null;
