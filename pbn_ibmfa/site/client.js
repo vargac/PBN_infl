@@ -162,7 +162,9 @@ window.onload = function() {
         decisionTree.reset();
         ws.onmessage = function(event) {
             console.log(event.data);
-            decisionTree.show(event.data);
+            let entropy =
+                decisionTree.show(event.data, attractors.get_attractor(id));
+            attractors.set_entropy(id, Number.parseFloat(entropy).toFixed(2));
             showConnected();
             attractors.table.lock = false;
         };

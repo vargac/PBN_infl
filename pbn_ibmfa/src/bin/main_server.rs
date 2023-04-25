@@ -1,11 +1,9 @@
-// TODO make the "computing" state interruptible (alebo lahsie, len vypisat
-// alertom po F5 pocas computing, ze by si restartovail server)
-// TODO stlpec robustnost
 // TODO leaf node aby sa to zarovnalo
 // TODO ostatne nody vypisat ako target(input1, input2, ...)
 // TODO monospace v leaf nodach aj state stlpci
 // TODO ukazat Petovi Gambosovi ci sa s tym da nieco spravit?
 // TODO vsetky unwrapy v tomto kode
+// TODO postprocessing vymazanie fixovani, ktore vlastne netreba
 //
 // TODO benchmarking!!!
 //

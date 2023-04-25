@@ -25,8 +25,12 @@ class Attractors {
         for (let bit of state) {
             state_html += `<span class='var_bit'>${bit}</span>`;
         }
-        row.innerHTML =
-            `<td>${this._count}</td><td>${colors}</td><td>${state_html}</td>`;
+        row.innerHTML = `
+            <td>${this._count}</td>
+            <td>${colors}</td>
+            <td>${state_html}</td>
+            <td>?</td>
+        `;
         this._count++;
         this.table.tBody.appendChild(row);
         let var_bits =
@@ -47,8 +51,23 @@ class Attractors {
         }
     }
 
+    _get_row(id) { return this.table.tBody.rows[id]; }
+
+    get_attractor(id) {
+        let cells = this._get_row(id).cells;
+        return {
+            colors: +cells[1].innerHTML,
+            state: cells[2].innerHTML,
+            entropy: cells[3].innerHTML
+        };
+    }
+
+    set_entropy(id, entropy) {
+        this._get_row(id).cells[3].innerHTML = entropy;
+    }
+
     get length() { return this._count; }
-    get selected() { return this.table.selected.cells[0].innerHTML; }
+    get selected() { return +this.table.selected.cells[0].innerHTML; }
     get hidden() { return this._field.hidden; }
     set hidden(value) { this._field.hidden = value; }
 }

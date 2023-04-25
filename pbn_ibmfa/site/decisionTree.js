@@ -17,10 +17,12 @@ class DecisionTree {
         this._field.innerHTML = "";
     }
 
-    show(tree_str) {
+    show(tree_str, attractor) {
         let nodes = [];
         let edges = [];
-        this.parse(tree_str.split(' '), nodes, edges);
+        let entropy = { value: 0.0 };
+        let colors = +attractor.colors;
+        this.parse(tree_str.split(' '), colors, nodes, edges, entropy);
 
         let data = {
             nodes: new vis.DataSet(nodes),
@@ -54,9 +56,12 @@ class DecisionTree {
             network.setOptions(options);
             network.setOptions({layout: { hierarchical: false}});
         };
+
+        let e = - (entropy.value / colors - Math.log2(colors));
+        return e < 0 ? 0 : e;
     }
 
-    parse(tree, nodes, edges) {
+    parse(tree, colors, nodes, edges, entropy) {
         if (tree[0] == '[') {
             let i = 1;
             let title = '';
@@ -77,15 +82,18 @@ class DecisionTree {
                 title: htmlTitle(title),
                 label: label,
             });
+            entropy.value += colors * Math.log2(colors);
             return i + 1;
         }
 
         let decision = tree[0];
         let colors_false = tree[1], colors_true = tree[2];
         let read = 3;
-        read += this.parse(tree.slice(read, tree.length), nodes, edges);
+        read += this.parse(
+            tree.slice(read, tree.length), colors_false, nodes, edges, entropy);
         let left = nodes[nodes.length - 1].id;
-        read += this.parse(tree.slice(read, tree.length), nodes, edges);
+        read += this.parse(
+            tree.slice(read, tree.length), colors_true, nodes, edges, entropy);
         let right = nodes[nodes.length - 1].id;
         let current = right + 1;
         nodes.push({id: current, label: decision});
