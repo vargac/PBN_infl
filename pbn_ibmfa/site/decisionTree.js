@@ -70,7 +70,8 @@ class DecisionTree {
                 let [name, value] = tree[i].split('=');
                 driver_set.set(name, value);
                 let color = value == '1' ? 'green' : 'red';
-                title += `<span style="color: ${color}">${name}</span> `;
+                title += `<span style="color: ${color}">${name}</span>`;
+                title += i % 2 == 1 ? ' ' : '<br>';
             }
             let label = this._var_names
                 .map(name => driver_set.has(name) ? driver_set.get(name) : '-')

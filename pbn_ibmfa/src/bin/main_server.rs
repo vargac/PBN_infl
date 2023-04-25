@@ -1,4 +1,3 @@
-// TODO leaf node aby sa to zarovnalo
 // TODO ostatne nody vypisat ako target(input1, input2, ...)
 // TODO vsetky unwrapy v tomto kode
 // TODO postprocessing vymazanie fixovani, ktore vlastne netreba
