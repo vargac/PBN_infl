@@ -191,7 +191,7 @@ fn session_loop<S: Stream>(
         // Ping
         OwnedMessage::Ping(data) => {
             println!("---ping---");
-            client.send_message(&OwnedMessage::Pong(data)).unwrap();
+//            client.send_message(&OwnedMessage::Pong(data)).unwrap();
         },
         // Command
         _ => {
