@@ -117,6 +117,7 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
     let sync_graph = session_data.sync_graph.as_ref().unwrap();
     match msg {
         OwnedMessage::Text(msg) => {
+            println!("Command {msg}");
             if msg == "START" {
                 let mut attrs = sync_graph.fixed_point_attractors();
                 attrs.sort_by(|a1, a2| a2.colors().exact_cardinality()
@@ -128,11 +129,6 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
                 match &session_data.attrs {
                     None => Err(format!("Error: '{msg:?}' before attractors")),
                     Some(attrs) => {
-                        /*
-                        Ok(OwnedMessage::Text(String::from(
-                            "DN1 [ v_her6=0 v_elavl3_HuC=0 ] DN2 [ v_miR_9=0 ] \
-                             [ v_Progenitor=1 v_her6=0 ]")))
-                        */
                         let id = msg.rsplit(' ').next().unwrap()
                             .parse::<usize>().unwrap();
                         let dtree = session_data.dtree_cache
@@ -163,6 +159,7 @@ fn session_loop<S: Stream>(
         // New model
         OwnedMessage::Binary(vec) => match open_model(&vec) {
             Ok(model) => {
+                println!("New session");
                 let sync_graph =
                     SymbSyncGraph::new(add_self_regulations(model));
                 let model = sync_graph.as_network();
@@ -191,7 +188,6 @@ fn session_loop<S: Stream>(
         // Ping
         OwnedMessage::Ping(data) => {
             println!("---ping---");
-//            client.send_message(&OwnedMessage::Pong(data)).unwrap();
         },
         // Command
         _ => {
