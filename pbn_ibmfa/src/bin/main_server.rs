@@ -1,4 +1,3 @@
-// TODO vsetky unwrapy v tomto kode
 // TODO postprocessing vymazanie fixovani, ktore vlastne netreba
 //
 // TODO benchmarking!!!
