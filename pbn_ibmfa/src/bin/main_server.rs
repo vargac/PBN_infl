@@ -1,4 +1,3 @@
-// TODO ostatne nody vypisat ako target(input1, input2, ...)
 // TODO vsetky unwrapy v tomto kode
 // TODO postprocessing vymazanie fixovani, ktore vlastne netreba
 //
@@ -66,19 +65,20 @@ fn attrs_to_msg(attrs: &[GraphColoredVertices], context: &SymbolicContext)
 fn tree_to_msg(
     tree: &DecisionTree,
     colors: &GraphColors,
-    context: &SymbolicContext
+    sync_graph: &SymbSyncGraph
 ) -> OwnedMessage {
     let mut buffer = String::new();
-    tree_to_str_rec(tree, colors, context, &mut buffer);
+    tree_to_str_rec(tree, colors, sync_graph, &mut buffer);
     OwnedMessage::Text(buffer)
 }
 
 fn tree_to_str_rec(
     tree: &DecisionTree,
     colors: &GraphColors,
-    context: &SymbolicContext,
+    sync_graph: &SymbSyncGraph,
     out: &mut String
 ) {
+    let context = sync_graph.symbolic_context();
     let bdd_var_set = context.bdd_variable_set();
     match tree {
         DecisionTree::Leaf(driver_set) => {
@@ -99,15 +99,46 @@ fn tree_to_str_rec(
             let fix_true = colors.copy(
                 colors.as_bdd().var_select(fix_var, true));
 
-            out.push_str(&bdd_var_set.name_of(fix_var));
+            // Add context for the fixing parameter variable
+            let fix_name = bdd_var_set.name_of(fix_var);
+            let mut fix_opt = None;
+            if fix_name.starts_with("f_") {
+                if let Some(index) = fix_name.find('[') {
+                    let name = &fix_name[2..index];
+                    let args = &fix_name[index + 1..fix_name.len() - 1];
+                    let reg_graph = sync_graph.as_network().as_graph();
+                    if let Some(var_id) = reg_graph.find_variable(name) {
+                        let mut result = sync_graph.as_network()
+                            .regulators(var_id)
+                            .iter()
+                            .zip(args.split(','))
+                            .fold(format!("{name}("), |mut acc, (reg_id, val)| {
+                                acc.push_str(val);
+                                acc.push_str(sync_graph.as_network()
+                                    .get_variable_name(*reg_id));
+                                acc.push(',');
+                                acc
+                            });
+                        result.pop();
+                        result.push(')');
+                        fix_opt = Some(result);
+                    }
+                }
+            }
+
+            if let Some(fix) = fix_opt {
+                out.push_str(&fix);
+            } else {
+                out.push_str(&fix_name);
+            }
             out.push(' ');
             out.push_str(&fix_false.exact_cardinality().to_str_radix(10));
             out.push(' ');
             out.push_str(&fix_true.exact_cardinality().to_str_radix(10));
             out.push(' ');
-            tree_to_str_rec(&node.get_childs()[0], &fix_false, context, out);
+            tree_to_str_rec(&node.get_childs()[0], &fix_false, sync_graph, out);
             out.push(' ');
-            tree_to_str_rec(&node.get_childs()[1], &fix_true, context, out);
+            tree_to_str_rec(&node.get_childs()[1], &fix_true, sync_graph, out);
         }
     }
 }
@@ -139,7 +170,7 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
                                     (&attr.vertices(), &attr.colors()))
                             });
                         Ok(tree_to_msg(&dtree, &attrs[id].colors(),
-                                       sync_graph.symbolic_context()))
+                                       sync_graph))
                     }
                 }
             } else {
@@ -186,7 +217,7 @@ fn session_loop<S: Stream>(
             return false;
         },
         // Ping
-        OwnedMessage::Ping(data) => {
+        OwnedMessage::Ping(_) => {
             println!("---ping---");
         },
         // Command

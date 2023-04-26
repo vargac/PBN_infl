@@ -88,6 +88,24 @@ class DecisionTree {
         }
 
         let decision = tree[0];
+        let decision_label = undefined, decision_title = undefined;
+        let regs_index = decision.indexOf('(');
+        if (regs_index != -1) {
+            decision_label = decision.slice(0, regs_index);
+            let regs = decision.slice(regs_index + 1, -1);
+            let title = decision_label + '(';
+            for (let reg of regs.split(',')) {
+                let color = reg[0] == '1' ? 'green' : 'red';
+                let name = reg.slice(1);
+                title += `<br>&nbsp;&nbsp;&nbsp;&nbsp;
+                    <span style="color: ${color}">${name}</span>`;
+            }
+            title += '<br>) = ?';
+            decision_title = htmlTitle(title);
+        } else {
+            decision_label = decision_title = decision;
+        }
+
         let colors_false = tree[1], colors_true = tree[2];
         let read = 3;
         read += this.parse(
@@ -97,7 +115,8 @@ class DecisionTree {
             tree.slice(read, tree.length), colors_true, nodes, edges, entropy);
         let right = nodes[nodes.length - 1].id;
         let current = right + 1;
-        nodes.push({id: current, label: decision});
+
+        nodes.push({id: current, label: decision_label, title: decision_title});
         edges.push({from: current, to: left,
                     color: 'red', label: colors_false, title: colors_false});
         edges.push({from: current, to: right,
