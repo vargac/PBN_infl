@@ -7,7 +7,7 @@ use biodivine_lib_param_bn::{VariableId,
 use crate::utils::{bdd_to_str, bdd_var_to_str};
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct UnitVertexFix {
     pub var_id: VariableId,
     pub value: bool,
@@ -19,7 +19,7 @@ pub struct UnitParameterFix {
     pub value: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum UnitFix {
     Vertex(UnitVertexFix),
     Parameter(UnitParameterFix),

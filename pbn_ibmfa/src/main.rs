@@ -112,7 +112,7 @@ fn main() {
                         (probs[i] == 1.0 || probs[i] == 0.0)
                         && !attr.fix_network_variable(
                             var_id, probs[i] != 0.0).is_empty()) {
-                println!("<><><> WRONG <><><>");
+                println!("<><><> WRONG <><><>"); // TODO
             }
             if !pbn_fix.get_parameter_fixes().is_empty() {
                 println!("<><><> FOUND <><><>");

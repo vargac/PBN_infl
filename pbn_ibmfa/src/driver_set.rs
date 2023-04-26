@@ -5,13 +5,25 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, GraphVertices};
 use biodivine_lib_bdd::Bdd;
 
 use crate::symbolic_sync_graph::SymbSyncGraph;
-use crate::ibmfa_computations::minimize_entropy;
+use crate::ibmfa_computations::{minimize_entropy, ibmfa_entropy};
 use fixes::{UnitVertexFix, UnitParameterFix};
 pub use fixes::{PBNFix, UnitFix, driver_set_to_str};
 
 
 pub mod fixes;
 
+
+pub fn find_reduced_driver_set(
+    sync_graph: &SymbSyncGraph,
+    iterations: usize,
+    attr_opt: Option<(&GraphVertices, &GraphColors)>,
+    verbose: bool
+) -> (PBNFix, Vec<f32>) {
+    let (pbn_fix, probs) = find_driver_set(
+        sync_graph, iterations, attr_opt, verbose);
+    let pbn_fix = reduce_driver_set(pbn_fix, sync_graph, iterations, verbose);
+    (pbn_fix, probs)
+}
 
 pub fn find_driver_set(
     sync_graph: &SymbSyncGraph,
@@ -53,6 +65,54 @@ pub fn find_driver_set(
         }
     }
     (pbn_fix, final_probs)
+}
+
+pub fn reduce_driver_set(
+    mut pbn_fix: PBNFix,
+    sync_graph: &SymbSyncGraph,
+    iterations: usize,
+    verbose: bool
+) -> PBNFix {
+    let mut fixes = pbn_fix.get_parameter_fixes()
+        .iter()
+        .map(|unit_par_fix| UnitFix::Parameter(unit_par_fix.clone()))
+        .chain(pbn_fix.get_driver_set()
+            .iter()
+            .map(|(&var_id, &value)| UnitFix::Vertex(
+                    UnitVertexFix { var_id, value })))
+        .collect::<HashSet<_>>();
+
+    loop {
+        let mut to_remove = None;
+        for unit_fix in &fixes {
+            if verbose {
+                println!("Try removing {}",
+                    unit_fix.to_str(&sync_graph.symbolic_context()));
+            }
+
+            pbn_fix.remove(unit_fix);
+            let (ent, _) = ibmfa_entropy(
+                &sync_graph, &pbn_fix, iterations, false, false);
+            pbn_fix.insert(unit_fix);
+
+            if verbose {
+                println!("{ent}");
+            }
+
+            if ent == 0.0 {
+                to_remove = Some(unit_fix.clone());
+                break;
+            }
+        }
+        if let Some(to_remove) = to_remove {
+            pbn_fix.remove(&to_remove);
+            fixes.remove(&to_remove);
+        } else {
+            break;
+        }
+    }
+
+    pbn_fix
 }
 
 fn prepare_fixes(

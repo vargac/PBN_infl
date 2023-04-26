@@ -27,7 +27,7 @@ fn main() {
         process::exit(1);
     });
     let model = BooleanNetwork::try_from(model_string.as_str()).unwrap();
-    let model = add_self_regulations(model.unwrap());
+    let model = add_self_regulations(model);
 
     // Print info about the model
     println!("vars: {}, pars: {}", model.num_vars(), model.num_parameters());
