@@ -155,7 +155,6 @@ fn prepare_fixes(
 }
 
 fn filter_fixes(fixes: &[UnitFix], pbn_fix: &PBNFix) -> Vec<UnitFix> {
-    // TODO benchmark more, if it really has a meaning for larger models
     let mut color_fixes = HashSet::new();
     fixes.iter()
         .filter(|fix| match fix {

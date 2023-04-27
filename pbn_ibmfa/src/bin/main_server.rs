@@ -1,5 +1,3 @@
-// TODO postprocessing vymazanie fixovani, ktore vlastne netreba
-//
 // TODO benchmarking!!!
 extern crate websocket;
 

@@ -26,7 +26,7 @@ window.onload = function() {
         connectionPort.removeAttribute('readonly');
         pbnFile.parentNode.hidden = true;
     }
-    function showComputing() { // TODO nemoze spravit novy request
+    function showComputing() {
         statusShow.className = "computing";
         statusShow.innerHTML = "Computing";
     }
