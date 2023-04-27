@@ -92,13 +92,6 @@ fn main() {
             let (pbn_fix, probs) = find_reduced_driver_set(
                 &sync_graph, iterations, Some((&attr, &colors)), false);
             println!("{:?}", probs);
-            if !sync_graph.as_network()
-                    .variables().enumerate().all(|(i, var_id)|
-                        (probs[i] == 1.0 || probs[i] == 0.0)
-                        && !attr.fix_network_variable(
-                            var_id, probs[i] != 0.0).is_empty()) {
-                println!("<><><> WRONG <><><>"); // TODO
-            }
             if !pbn_fix.get_parameter_fixes().is_empty() {
                 println!("<><><> FOUND <><><>");
             }

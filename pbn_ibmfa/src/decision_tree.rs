@@ -56,8 +56,6 @@ pub fn decision_tree(
     attr: (&GraphVertices, &GraphColors),
     reduced: bool,
 ) -> DecisionTree {
-    // TODO otestovat, ci to pride k danemu atraktoru
-    // alebo radsej to dat ako podmienku pri hladani minimalise_entropy
     let (pbn_fix, _) = if reduced {
         find_reduced_driver_set(&sync_graph, iterations, Some(attr), false)
     } else {
