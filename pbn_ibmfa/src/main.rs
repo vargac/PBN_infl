@@ -13,7 +13,7 @@ use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::utils::{partial_valuation_to_str, valuation_to_str,
     vertices_to_str, attr_from_str, bdd_to_str, bdd_var_to_str,
     bdd_pick_unsupported, add_self_regulations};
-use pbn_ibmfa::driver_set::find_reduced_driver_set;
+use pbn_ibmfa::driver_set::{find_reduced_driver_set, find_driver_set};
 use pbn_ibmfa::decision_tree::decision_tree;
 
 
@@ -82,6 +82,54 @@ fn main() {
 
     let iterations = 10;
 
+    // big decision tree of TRP-BIOSYNTHESIS_fpared
+    let attr = vec!["v_TrpE", "v_Trp_b2", "v_Trpext_b1", "v_Trpext_b2"];
+    //let attr = vec!["v_TrpE", "v_Trp_b2", "v_Trpext_b1"];
+    let attr = pbn_ibmfa::utils::attr_from_str(&attr, &sync_graph);
+
+    let mut keys = Vec::new();
+    let mut values: Vec<GraphColors> = Vec::new();
+    let mut colors = attrs_map[&attr].clone();
+    while !colors.is_empty() {
+        let color = colors.pick_singleton();
+
+        let (pbn_fix, _) = find_reduced_driver_set(
+            &sync_graph, iterations, Some((&attr, &color)), false);
+        assert!(pbn_fix.get_parameter_fixes().is_empty());
+
+        colors = colors.minus(&color);
+
+        let driver_set = pbn_fix.get_driver_set();
+        if let Some(i) = keys.iter().position(|key| *key == *driver_set) {
+            values[i] = values[i].union(&color);
+        } else {
+            keys.push(driver_set.clone());
+            values.push(color);
+        }
+    }
+
+    let context = sync_graph.symbolic_context();
+    for (driver_set, colors) in keys.iter().zip(values.iter()) {
+        println!("{}: {}",
+            colors.exact_cardinality(),
+            pbn_ibmfa::driver_set::fixes::driver_set_to_str(driver_set, context));
+        println!();
+    }
+    println!();
+
+    let selection = values[0].as_bdd().not().or(colors.as_bdd()).not();
+    println!("{}",
+        pbn_ibmfa::utils::bdd_to_str(&selection, context));
+    println!();
+
+    let (pbn_fix, _) = find_reduced_driver_set(
+            &sync_graph, iterations, Some((&attr, &attrs_map[&attr])), false);
+    println!("{}", pbn_fix.to_str(context));
+
+    /*
+    let attr_arg = (&attr, &attrs_map[&attr]);
+    find_reduced_driver_set(&sync_graph, iterations, Some(attr_arg), true);
+
     println!("Attractors: {}", attrs_map.len());
     for (i, (attr, colors)) in attrs_map.iter().enumerate() {
         println!("{i} (size {}): {}",
@@ -98,4 +146,5 @@ fn main() {
         }
     }
     println!();
+    */
 }

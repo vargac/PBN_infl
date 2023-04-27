@@ -28,7 +28,7 @@ pub enum UnitFix {
 pub type DriverSet = HashMap<VariableId, bool>;
 pub type ColorsFix = Bdd;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PBNFix {
     driver_set: DriverSet,
     colors_fix: ColorsFix,
