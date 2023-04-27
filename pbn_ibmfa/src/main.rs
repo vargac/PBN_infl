@@ -75,21 +75,6 @@ fn main() {
     // Compute the symbolic synchronous transition graph
     let sync_graph = SymbSyncGraph::new(model);
 
-    /* TODO add as a test
-    let init_state = vec![false, false, false, false, false, false];
-    let start = init_state.iter()
-        .zip(sync_graph.bn.variables())
-        .fold(sync_graph.unit_colored_vertices(),
-            |acc, (&val, var_id)| acc.fix_network_variable(var_id, val));
-
-    println!("{}", sync_graph.bdd_to_str(
-        sync_graph.pre_synch(&start).as_bdd()));
-    println!("{}", sync_graph.bdd_to_str(start.as_bdd()));
-    println!("{}", sync_graph.bdd_to_str(
-        sync_graph.post_synch(&start).as_bdd()));
-    println!();
-    */
-
     // Compute the attractors
     let attrs = sync_graph.fixed_point_attractors();
     let attrs_map = attrs.iter()
