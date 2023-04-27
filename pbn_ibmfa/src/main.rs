@@ -1,5 +1,4 @@
 #![allow(unused_imports)]
-#![allow(unused_mut)]
 
 use std::{env, process, fs};
 use std::collections::{HashMap, HashSet};

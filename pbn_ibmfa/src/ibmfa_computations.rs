@@ -11,8 +11,6 @@ pub fn entropy(probs: &[f32]) -> f32 {
         .sum::<f32>() / probs.len() as f32
 }
 
-/* TODO: early_stop is not a good idea. May be rather simulate until the values
- * converge, up to max iteration number. */
 pub fn ibmfa_entropy(
     sync_graph: &SymbSyncGraph,
     pbn_fix: &PBNFix,
@@ -75,7 +73,7 @@ pub fn minimize_entropy<'a>(
 fn clause_probability(
     clause: &BddPartialValuation,
     probs: &[f32],
-    var_index: &VarIndex) // TODO iterovat radsej cez state variables
+    var_index: &VarIndex)
 -> f32 {
     clause.to_values().iter()
         .map(|&(var, val)| {

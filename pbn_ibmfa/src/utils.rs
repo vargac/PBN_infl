@@ -15,7 +15,6 @@ pub fn attr_from_str(attr_str: &[&str], sync_graph: &SymbSyncGraph)
         .collect::<HashSet<_>>();
     sync_graph.as_network().variables()
         .map(|var_id| (var_id, attr_vertex_ids.contains(&var_id)))
-//TODO .fold(sync_graph().symbolic_context().mk_constant(true))
         .fold(sync_graph.unit_colored_vertices().vertices(),
             |acc, (var_id, val)| acc.fix_network_variable(var_id, val))
 }
