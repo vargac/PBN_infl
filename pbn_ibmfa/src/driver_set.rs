@@ -73,18 +73,19 @@ pub fn reduce_driver_set(
     iterations: usize,
     verbose: bool
 ) -> PBNFix {
-    let mut fixes = pbn_fix.get_parameter_fixes()
+    let mut fixes = pbn_fix.get_driver_set()
         .iter()
-        .map(|unit_par_fix| UnitFix::Parameter(unit_par_fix.clone()))
-        .chain(pbn_fix.get_driver_set()
+        .map(|(&var_id, &value)|
+            UnitFix::Vertex(UnitVertexFix { var_id, value }))
+        .chain(pbn_fix.get_parameter_fixes()
             .iter()
-            .map(|(&var_id, &value)| UnitFix::Vertex(
-                    UnitVertexFix { var_id, value })))
-        .collect::<HashSet<_>>();
+            .map(|unit_par_fix| UnitFix::Parameter(unit_par_fix.clone())))
+        .collect::<Vec<_>>();
 
     loop {
         let mut to_remove = None;
-        for unit_fix in &fixes {
+        let mut to_remove_i = 0;
+        for (i, unit_fix) in fixes.iter().enumerate() {
             if verbose {
                 println!("Try removing {}",
                     unit_fix.to_str(&sync_graph.symbolic_context()));
@@ -101,12 +102,18 @@ pub fn reduce_driver_set(
 
             if ent == 0.0 {
                 to_remove = Some(unit_fix.clone());
+                to_remove_i = i;
                 break;
             }
         }
         if let Some(to_remove) = to_remove {
             pbn_fix.remove(&to_remove);
-            fixes.remove(&to_remove);
+            fixes.remove(to_remove_i);
+            if verbose {
+                println!("Removing {}",
+                    to_remove.to_str(&sync_graph.symbolic_context()));
+                println!("{}", pbn_fix.to_str(sync_graph.symbolic_context()));
+            }
         } else {
             break;
         }
