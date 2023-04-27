@@ -14,7 +14,7 @@ use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::utils::{partial_valuation_to_str, valuation_to_str,
     vertices_to_str, attr_from_str, bdd_to_str, bdd_var_to_str,
     bdd_pick_unsupported, add_self_regulations};
-use pbn_ibmfa::driver_set::find_driver_set;
+use pbn_ibmfa::driver_set::find_reduced_driver_set;
 use pbn_ibmfa::decision_tree::decision_tree;
 
 
@@ -104,7 +104,7 @@ fn main() {
             colors.approx_cardinality(),
             vertices_to_str(attr, sync_graph.symbolic_context()));
         if attr.approx_cardinality() == 1.0 {
-            let (pbn_fix, probs) = find_driver_set(
+            let (pbn_fix, probs) = find_reduced_driver_set(
                 &sync_graph, iterations, Some((&attr, &colors)), false);
             println!("{:?}", probs);
             if !sync_graph.as_network()

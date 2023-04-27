@@ -166,7 +166,7 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
                             .or_insert_with(|| {
                                 let attr = &attrs[id];
                                 decision_tree(&sync_graph, ITERATIONS,
-                                    (&attr.vertices(), &attr.colors()))
+                                    (&attr.vertices(), &attr.colors()), true)
                             });
                         Ok(tree_to_msg(&dtree, &attrs[id].colors(),
                                        sync_graph))

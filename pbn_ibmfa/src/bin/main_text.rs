@@ -1,17 +1,11 @@
 use std::{env, process, fs};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use biodivine_lib_param_bn::{BooleanNetwork, FnUpdate};
-use biodivine_lib_param_bn::biodivine_std::traits::Set;
-use biodivine_lib_param_bn::symbolic_async_graph::
-    {GraphColoredVertices, GraphColors, GraphVertices};
-use biodivine_lib_bdd::BddVariable;
+use biodivine_lib_param_bn::BooleanNetwork;
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, GraphVertices};
 
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
-use pbn_ibmfa::utils::{partial_valuation_to_str, valuation_to_str,
-    vertices_to_str, attr_from_str, bdd_to_str, bdd_var_to_str,
-    bdd_pick_unsupported, add_self_regulations};
-use pbn_ibmfa::driver_set::find_driver_set;
+use pbn_ibmfa::utils::{vertices_to_str, add_self_regulations};
 use pbn_ibmfa::decision_tree::decision_tree;
 
 
@@ -54,7 +48,8 @@ fn main() {
             colors.approx_cardinality(),
             vertices_to_str(attr, sync_graph.symbolic_context()));
 
-        let dtree = decision_tree(&sync_graph, iterations, (&attr, &colors));
+        let dtree = decision_tree(
+            &sync_graph, iterations, (&attr, &colors), true);
         println!("{}", dtree.to_str(sync_graph.symbolic_context()));
     }
 }

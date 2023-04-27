@@ -38,6 +38,10 @@ input[type=button] {
     width: 6em;
 }
 
+#pbnFile {
+    width: 100%;
+}
+
 label[for=connectionPort] {
     text-align: right;
 }
