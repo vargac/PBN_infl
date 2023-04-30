@@ -18,7 +18,7 @@ pub fn ibmfa_entropy(
     early_stop: bool,
     explicit_pupdate_funs_opt: Option<&[PUpdateFunExplicit]>,
     verbose: bool,
-) -> (f32, Vec<f32>) {
+) -> (f32, Vec<f32>, usize) {
     let mut probs = sync_graph.as_network().variables()
         .map(|var_id|
             if let Some(fixed_prob) = pbn_fix.get_vertex(var_id) {
@@ -40,18 +40,20 @@ pub fn ibmfa_entropy(
         || explicit_pupdate_funs_binding.as_ref().unwrap());
 
     let mut ent = 0.0;
-    for _ in 0..iterations {
+    let mut last_ent = 1.0;
+    for i in 0..iterations {
         probs =
             ibmfa_step(&sync_graph, &probs, &pbn_fix, explicit_pupdate_funs);
         if verbose {
             println!("{:?}", probs);
         }
         ent = entropy(&probs);
-        if ent == 0.0 && early_stop {
-            break;
+        if ent == 0.0 && last_ent == 0.0 && early_stop {
+            return (ent, probs, i - 1);
         }
+        last_ent = ent;
     }
-    (ent, probs)
+    (ent, probs, iterations)
 }
 
 // `pbn_fix` is `mut`, but after the function call it remains the same as
@@ -72,18 +74,19 @@ pub fn minimize_entropy<'a>(
             }
 
             pbn_fix.insert(unit_fix);
-            let (ent, probs) = ibmfa_entropy(
-                &sync_graph, &pbn_fix, iterations, false,
+            let (ent, probs, index) = ibmfa_entropy(
+                &sync_graph, &pbn_fix, iterations, true,
                 explicit_pupdate_funs_opt, false);
             pbn_fix.remove(unit_fix);
 
             if verbose {
-                println!("{ent}");
+                println!("{ent} at {index}");
             }
 
-            (unit_fix, ent, probs)
+            (unit_fix, (index, ent), probs)
         })
         .min_by(|(_, a, _), (_, b, _)| a.partial_cmp(b).unwrap())
+        .map(|(unit_fix, (_, ent), probs)| (unit_fix, ent, probs))
 }
 
 fn clause_probability(

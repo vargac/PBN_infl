@@ -106,18 +106,26 @@ fn main() {
             }
         }
 
-        driver_sets_map.insert(attr, driver_sets);
+        let (global_pbn_fix, _) = find_driver_set(
+            &sync_graph, iterations, true, Some((&attr, &colors)),
+            true, false);
+        let global_driver_set = global_pbn_fix.get_driver_set().clone();
+
+        driver_sets_map.insert(attr, (driver_sets, global_driver_set));
     }
 
     let context = sync_graph.symbolic_context();
-    for (attr, driver_set) in driver_sets_map.iter() {
+    for (attr, (driver_sets, global_driver_set)) in driver_sets_map.iter() {
         println!("{}", pbn_ibmfa::utils::vertices_to_str(attr, context));
-        for (driver_set, colors) in driver_set {
+        for (driver_set, colors) in driver_sets {
             println!("{}: {}",
                 colors.exact_cardinality(),
                 pbn_ibmfa::driver_set::fixes::driver_set_to_str(
                     driver_set, context));
         }
+        println!("GLOBAL: {}",
+            pbn_ibmfa::driver_set::fixes::driver_set_to_str(
+                global_driver_set, context));
         println!();
     }
 

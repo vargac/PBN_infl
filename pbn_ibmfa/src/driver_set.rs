@@ -110,6 +110,7 @@ pub fn reduce_driver_set(
     loop {
         let mut to_remove = None;
         let mut to_remove_i = 0;
+        let mut to_remove_conv_index = iterations + 1;
         for (i, unit_fix) in fixes.iter().enumerate() {
             if verbose {
                 println!("Try removing {}",
@@ -117,18 +118,19 @@ pub fn reduce_driver_set(
             }
 
             pbn_fix.remove(unit_fix);
-            let (ent, _) = ibmfa_entropy(&sync_graph, &pbn_fix, iterations,
-                false, explicit_pupdate_funs_opt, false);
+            let (ent, _, conv_index) = ibmfa_entropy(
+                &sync_graph, &pbn_fix, iterations,
+                false, explicit_pupdate_funs_opt, true);
             pbn_fix.insert(unit_fix);
 
             if verbose {
                 println!("{ent}");
             }
 
-            if ent == 0.0 {
+            if ent == 0.0 && conv_index < to_remove_conv_index {
                 to_remove = Some(unit_fix.clone());
                 to_remove_i = i;
-                break;
+                to_remove_conv_index = conv_index;
             }
         }
         if let Some(to_remove) = to_remove {
