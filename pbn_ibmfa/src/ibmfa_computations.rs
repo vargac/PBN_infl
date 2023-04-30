@@ -1,6 +1,6 @@
-use biodivine_lib_bdd::{BddPartialValuation, Bdd};
+use biodivine_lib_bdd::BddPartialValuation;
 
-use crate::symbolic_sync_graph::{SymbSyncGraph, VarIndex};
+use crate::symbolic_sync_graph::{SymbSyncGraph, VarIndex, PUpdateFunExplicit};
 use crate::driver_set::{PBNFix, UnitFix};
 
 
@@ -16,8 +16,9 @@ pub fn ibmfa_entropy(
     pbn_fix: &PBNFix,
     iterations: usize,
     early_stop: bool,
-    verbose: bool)
--> (f32, Vec<f32>) {
+    explicit_pupdate_funs_opt: Option<&[PUpdateFunExplicit]>,
+    verbose: bool,
+) -> (f32, Vec<f32>) {
     let mut probs = sync_graph.as_network().variables()
         .map(|var_id|
             if let Some(fixed_prob) = pbn_fix.get_vertex(var_id) {
@@ -26,11 +27,22 @@ pub fn ibmfa_entropy(
                 0.5
             })
         .collect::<Vec<_>>();
+
+    // In the case of finding color-fixes (not just vertex-fixes), now, it is
+    // the time to compute explicit parametrizations of update functions,
+    // as the update functions does not change any more (by means of restricting
+    // some colors of the system).
+    let explicit_pupdate_funs_binding = match explicit_pupdate_funs_opt {
+        Some(_) => None,
+        None => Some(sync_graph.explicit_pupdate_functions(&pbn_fix.colors())),
+    };
+    let explicit_pupdate_funs = explicit_pupdate_funs_opt.unwrap_or_else(
+        || explicit_pupdate_funs_binding.as_ref().unwrap());
+
     let mut ent = 0.0;
-    let parametrizations =
-        precompute_parametrizations(sync_graph, pbn_fix);
     for _ in 0..iterations {
-        probs = ibmfa_step(&sync_graph, &probs, &pbn_fix, &parametrizations);
+        probs =
+            ibmfa_step(&sync_graph, &probs, &pbn_fix, explicit_pupdate_funs);
         if verbose {
             println!("{:?}", probs);
         }
@@ -49,6 +61,7 @@ pub fn minimize_entropy<'a>(
     iterations: usize,
     pbn_fix: &mut PBNFix,
     available_fixes: impl IntoIterator<Item = &'a UnitFix>,
+    explicit_pupdate_funs_opt: Option<&[PUpdateFunExplicit]>,
     verbose: bool,
 ) -> Option<(&'a UnitFix, f32, Vec<f32>)> {
     available_fixes.into_iter()
@@ -60,7 +73,8 @@ pub fn minimize_entropy<'a>(
 
             pbn_fix.insert(unit_fix);
             let (ent, probs) = ibmfa_entropy(
-                &sync_graph, &pbn_fix, iterations, false, false);
+                &sync_graph, &pbn_fix, iterations, false,
+                explicit_pupdate_funs_opt, false);
             pbn_fix.remove(unit_fix);
 
             if verbose {
@@ -85,48 +99,18 @@ fn clause_probability(
         .product()
 }
 
-enum UpdateFunData {
-    Parametrization(Vec<Bdd>),
-    Fixed(f32),
-}
-
-fn precompute_parametrizations(sync_graph: &SymbSyncGraph, pbn_fix: &PBNFix)
--> Vec<UpdateFunData> {
-    let colors = pbn_fix.colors();
-    sync_graph.get_pupdate_functions().iter()
-        .zip(sync_graph.as_network().variables())
-        .map(|(pupdate_function, var_id)| {
-            if let Some(fixed_prob) = pbn_fix.get_vertex(var_id) {
-                UpdateFunData::Fixed(if fixed_prob { 1.0 } else { 0.0 })
-            } else {
-                let parametrizations = pupdate_function
-                    .restricted_parametrizations(colors.clone());
-
-                let pars = sync_graph.get_all_false()
-                    .project(pupdate_function.get_parameters())
-                    .and(&parametrizations);
-
-                UpdateFunData::Parametrization(pars
-                    .sat_valuations()
-                    .map(|parametrization|
-                        pupdate_function.restricted(&parametrization))
-                    .collect::<Vec<_>>()
-                )
-            }
-        })
-        .collect::<Vec<_>>()
-}
-
 fn ibmfa_step(
     sync_graph: &SymbSyncGraph,
     probs: &[f32],
     pbn_fix: &PBNFix,
-    parametrizations: &Vec<UpdateFunData>,
+    explicit_pupdate_funs: &[PUpdateFunExplicit],
 ) -> Vec<f32> {
-    parametrizations.iter()
-        .map(|update_fun_data| match update_fun_data {
-            UpdateFunData::Fixed(value) => *value,
-            UpdateFunData::Parametrization(f_parametrizations) =>
+    explicit_pupdate_funs.iter()
+        .zip(sync_graph.as_network().variables())
+        .map(|(f_parametrizations, var_id)|
+            if let Some(fixed_prob) = pbn_fix.get_vertex(var_id) {
+                if fixed_prob { 1.0 } else { 0.0 }
+            } else {
                 f_parametrizations.iter()
                     .map(|update_fun| update_fun
                         .sat_clauses()
@@ -134,5 +118,6 @@ fn ibmfa_step(
                                 sync_graph.get_var_index()))
                         .sum::<f32>())
                     .sum::<f32>() / f_parametrizations.len() as f32
-        }).collect()
+            })
+        .collect()
 }

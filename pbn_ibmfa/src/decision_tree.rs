@@ -3,8 +3,8 @@ use biodivine_lib_param_bn::symbolic_async_graph::
     {GraphVertices, GraphColors, SymbolicContext};
 
 use crate::ibmfa_computations::minimize_entropy;
-use crate::driver_set::{find_driver_set, find_reduced_driver_set,
-    driver_set_to_str, PBNFix, UnitFix, fixes::{DriverSet, UnitParameterFix}};
+use crate::driver_set::{find_driver_set, driver_set_to_str, PBNFix, UnitFix,
+    fixes::{DriverSet, UnitParameterFix}};
 use crate::symbolic_sync_graph::SymbSyncGraph;
 use crate::utils::bdd_var_to_str;
 
@@ -56,12 +56,9 @@ pub fn decision_tree(
     attr: (&GraphVertices, &GraphColors),
     reduced: bool,
 ) -> DecisionTree {
-    let (pbn_fix, _) = if reduced {
-        find_reduced_driver_set(&sync_graph, iterations, Some(attr), false)
-    } else {
-        find_driver_set(&sync_graph, iterations, Some(attr), false)
-    };
-    decision_tree_recursive(&sync_graph, iterations, attr, pbn_fix, reduced)
+    let (pbn_fix, _) = find_driver_set(
+        sync_graph, iterations, reduced, Some(attr), false, false);
+    decision_tree_recursive(sync_graph, iterations, attr, pbn_fix, reduced)
 }
 
 fn decision_tree_recursive(
@@ -84,7 +81,7 @@ fn decision_tree_recursive(
         .collect::<Vec<_>>();
     let unit_fix = minimize_entropy(
         &sync_graph, iterations, &mut pbn_fix_copy,
-        &available_fixings, false
+        &available_fixings, None, false
     ).map(|(unit_fix, _, _)| unit_fix).unwrap();
 
     let UnitParameterFix { bdd_var, value } = match unit_fix {
@@ -107,21 +104,14 @@ fn decision_tree_recursive(
         attr.1.copy(attr.1.as_bdd().var_select(bdd_var, !value));
     let attr_neg_value = (attr.0, &colors_neg_value);
 
-    let (pbn_fix, _) = if reduced {
-        find_reduced_driver_set(
-            &sync_graph,
-            iterations,
-            Some(attr_neg_value),
-            false
-        )
-    } else {
-        find_driver_set(
-            &sync_graph,
-            iterations,
-            Some(attr_neg_value),
-            false
-        )
-    };
+    let (pbn_fix, _) = find_driver_set(
+        &sync_graph,
+        iterations,
+        reduced,
+        Some(attr_neg_value),
+        false,
+        false
+    );
 
     let subtree_neg_value = Box::new(decision_tree_recursive(
             &sync_graph,

@@ -19,6 +19,8 @@ pub struct ParedUpdateFunction {
     par_bdd_vars: Vec<BddVariable>,
 }
 
+pub type PUpdateFunExplicit = Vec<Bdd>;
+
 impl ParedUpdateFunction {
     fn new(
         update_function: &Bdd,
@@ -87,6 +89,17 @@ impl ParedUpdateFunction {
     pub fn restricted_parametrizations_safe(&self, restriction: Bdd) -> Bdd {
         self.parametrizations.and(
             &self.restricted_parametrizations(restriction))
+    }
+
+    pub fn explicit_in(&self, colors: &Bdd, sync_graph: &SymbSyncGraph)
+    -> PUpdateFunExplicit {
+        self.restricted_parametrizations(colors.clone())
+            .and(&sync_graph
+                .get_all_false()
+                .project(&self.par_bdd_vars))
+            .sat_valuations()
+            .map(|parametrization| self.restricted(&parametrization))
+            .collect::<PUpdateFunExplicit>()
     }
 }
 
@@ -194,5 +207,13 @@ impl SymbSyncGraph {
 
     pub fn get_all_false(&self) -> &Bdd {
         &self.all_false_bdd
+    }
+
+    pub fn explicit_pupdate_functions(&self, colors: &Bdd)
+    -> Vec<PUpdateFunExplicit> {
+        self.pupdate_functions.iter()
+            .map(|pupdate_function|
+                pupdate_function.explicit_in(colors, &self))
+            .collect()
     }
 }

@@ -4,7 +4,7 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, GraphVertices};
 use biodivine_lib_bdd::Bdd;
 
-use crate::symbolic_sync_graph::SymbSyncGraph;
+use crate::symbolic_sync_graph::{SymbSyncGraph, PUpdateFunExplicit};
 use crate::ibmfa_computations::{minimize_entropy, ibmfa_entropy};
 use fixes::{UnitVertexFix, UnitParameterFix};
 pub use fixes::{PBNFix, UnitFix, driver_set_to_str};
@@ -13,30 +13,54 @@ pub use fixes::{PBNFix, UnitFix, driver_set_to_str};
 pub mod fixes;
 
 
-pub fn find_reduced_driver_set(
-    sync_graph: &SymbSyncGraph,
-    iterations: usize,
-    attr_opt: Option<(&GraphVertices, &GraphColors)>,
-    verbose: bool
-) -> (PBNFix, Vec<f32>) {
-    let (pbn_fix, probs) = find_driver_set(
-        sync_graph, iterations, attr_opt, verbose);
-    let pbn_fix = reduce_driver_set(pbn_fix, sync_graph, iterations, verbose);
-    (pbn_fix, probs)
-}
-
 pub fn find_driver_set(
     sync_graph: &SymbSyncGraph,
     iterations: usize,
+    reduced: bool,
     attr_opt: Option<(&GraphVertices, &GraphColors)>,
-    verbose: bool
+    fix_only_vertices: bool,
+    verbose: bool,
 ) -> (PBNFix, Vec<f32>) {
+    // Colors that will be explored
     let colors = match attr_opt {
         Some((_, attr_colors)) => attr_colors.as_bdd().clone(),
         None => sync_graph.unit_colors().into_bdd(),
     };
-    let (mut available_fixes, mut pbn_fix) =
-        prepare_fixes(&sync_graph, attr_opt.map(|tup| tup.0), colors);
+
+    // Compute the explicit parametrizations of update functions in
+    // specific colors as soon as possible to avoid redundant computations.
+    let explicit_pupdate_funs_opt = if fix_only_vertices {
+        Some(sync_graph.explicit_pupdate_functions(&colors))
+    } else {
+        None
+    };
+    let explicit_pupdate_funs_opt =
+        explicit_pupdate_funs_opt.as_ref().map(|ef| ef.as_slice());
+
+    // Build up the driver set in a greedy optimization search
+    let (mut pbn_fix, probs) = build_driver_set(
+        sync_graph, iterations, colors, attr_opt.map(|tup| tup.0),
+        explicit_pupdate_funs_opt, verbose);
+
+    // Exclude unnecessary fixes
+    if reduced {
+        pbn_fix = reduce_driver_set(pbn_fix, sync_graph, iterations,
+            explicit_pupdate_funs_opt, verbose);
+    }
+
+    (pbn_fix, probs)
+}
+
+fn build_driver_set(
+    sync_graph: &SymbSyncGraph,
+    iterations: usize,
+    colors: Bdd,
+    attr_opt: Option<&GraphVertices>,
+    explicit_pupdate_funs_opt: Option<&[PUpdateFunExplicit]>,
+    verbose: bool
+) -> (PBNFix, Vec<f32>) {
+    let (mut available_fixes, mut pbn_fix) = prepare_fixes(
+        &sync_graph, attr_opt, colors, explicit_pupdate_funs_opt.is_some());
 
     let mut final_probs = Vec::new();
 
@@ -46,8 +70,8 @@ pub fn find_driver_set(
         }
 
         let (unit_fix, min_entropy, probs) = minimize_entropy(
-            &sync_graph, iterations, &mut pbn_fix, &available_fixes, verbose)
-            .unwrap();
+            &sync_graph, iterations, &mut pbn_fix, &available_fixes,
+            explicit_pupdate_funs_opt, verbose).unwrap();
 
         pbn_fix.insert(unit_fix);
 
@@ -71,6 +95,7 @@ pub fn reduce_driver_set(
     mut pbn_fix: PBNFix,
     sync_graph: &SymbSyncGraph,
     iterations: usize,
+    explicit_pupdate_funs_opt: Option<&[PUpdateFunExplicit]>,
     verbose: bool
 ) -> PBNFix {
     let mut fixes = pbn_fix.get_driver_set()
@@ -92,8 +117,8 @@ pub fn reduce_driver_set(
             }
 
             pbn_fix.remove(unit_fix);
-            let (ent, _) = ibmfa_entropy(
-                &sync_graph, &pbn_fix, iterations, false, false);
+            let (ent, _) = ibmfa_entropy(&sync_graph, &pbn_fix, iterations,
+                false, explicit_pupdate_funs_opt, false);
             pbn_fix.insert(unit_fix);
 
             if verbose {
@@ -125,7 +150,8 @@ pub fn reduce_driver_set(
 fn prepare_fixes(
     sync_graph: &SymbSyncGraph,
     attr_opt: Option<&GraphVertices>,
-    colors: Bdd
+    colors: Bdd,
+    fix_only_vertices: bool,
 ) -> (Vec<UnitFix>, PBNFix) {
     let mut available_fixes = Vec::new();
 
@@ -143,10 +169,15 @@ fn prepare_fixes(
     }
 
     // Fixes of parameter variables
-    for bdd_var in sync_graph.symbolic_context().parameter_variables() {
-        for value in [false, true] {
-            let fix = UnitParameterFix { bdd_var: *bdd_var, value };
-            available_fixes.push(UnitFix::Parameter(fix));
+    // - This does not work well. Fixing parameters cannot be used
+    //   to compute a partition of parametrizations. It seems so
+    //   from our tries to implement that.
+    if !fix_only_vertices {
+        for bdd_var in sync_graph.symbolic_context().parameter_variables() {
+            for value in [false, true] {
+                let fix = UnitParameterFix { bdd_var: *bdd_var, value };
+                available_fixes.push(UnitFix::Parameter(fix));
+            }
         }
     }
 
