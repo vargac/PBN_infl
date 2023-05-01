@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use biodivine_lib_bdd::{BddVariable, Bdd};
+use biodivine_lib_bdd::{Bdd, BddVariableSet};
 use biodivine_lib_param_bn::symbolic_async_graph::
     {GraphVertices, GraphColors, SymbolicContext};
 
@@ -8,12 +8,12 @@ use crate::ibmfa_computations::minimize_entropy;
 use crate::driver_set::{find_driver_set, driver_set_to_str, PBNFix, UnitFix,
     fixes::{DriverSet, UnitParameterFix}};
 use crate::symbolic_sync_graph::SymbSyncGraph;
-use crate::utils::bdd_var_to_str;
+use crate::utils::bdd_to_str;
 
 #[derive(Clone, Debug)]
 pub struct DecisionNode {
     childs: [Box<DecisionTree>; 2],
-    color_fix: BddVariable,
+    color_fix: Bdd,
 }
 
 #[derive(Clone, Debug)]
@@ -27,8 +27,8 @@ impl DecisionNode {
         &self.childs
     }
 
-    pub fn get_fix(&self) -> BddVariable {
-        self.color_fix
+    pub fn get_fix(&self) -> &Bdd {
+        &self.color_fix
     }
 }
 
@@ -42,7 +42,7 @@ impl DecisionTree {
             DecisionTree::Node(node) => {
                 let indent = " ".repeat(level);
                 format!("{}\n{indent}-0- {}\n{indent}-1- {}",
-                    bdd_var_to_str(node.color_fix, context),
+                    bdd_to_str(&node.color_fix, context),
                     node.childs[0].to_str_rec(level + 4, context),
                     node.childs[1].to_str_rec(level + 4, context))
                 },
@@ -85,10 +85,11 @@ impl UnresolvedNode {
 pub fn decision_tree_from_partition(
     all_colors: &Bdd,
     driver_sets: &[(Bdd, DriverSet)],
+    bdd_variable_set: &BddVariableSet,
 ) -> DecisionTree {
     fn split_unresolved(
         mut node: UnresolvedNode,
-        mut pars: HashSet<BddVariable>,
+        mut pars: HashSet<Bdd>,
     ) -> DecisionTree {
         if node.driver_sets.is_empty() {
             return DecisionTree::Leaf(DriverSet::new());
@@ -98,31 +99,38 @@ pub fn decision_tree_from_partition(
         }
 
         let (par, split_nodes) =
-            best_decision_par(pars.iter().copied(), &node).unwrap();
+            best_decision_par(&pars, &node).unwrap();
         pars.remove(&par);
         let trees = split_nodes.map(|split_node|
                 Box::new(split_unresolved(split_node, pars.clone())));
 
-        DecisionTree::Node(DecisionNode { childs: trees, color_fix: par })
+        DecisionTree::Node(DecisionNode {
+            childs: trees,
+            color_fix: par
+        })
     }
 
     let node = UnresolvedNode {
         colors: all_colors.clone(),
         driver_sets: Vec::from(driver_sets)
     };
-    split_unresolved(node, all_colors.support_set())
+    let pars = all_colors.support_set().iter()
+        .map(|bdd_var| bdd_variable_set.mk_var(*bdd_var))
+        .collect::<HashSet<_>>();
+
+    split_unresolved(node, pars)
 }
 
-fn best_decision_par(
-    pars: impl IntoIterator<Item = BddVariable>,
+fn best_decision_par<'a>(
+    pars: impl IntoIterator<Item = &'a Bdd>,
     node: &UnresolvedNode,
-) -> Option<(BddVariable, [UnresolvedNode; 2])> {
+) -> Option<(Bdd, [UnresolvedNode; 2])> {
     // Maximization of information gain = Minimization of information entropy
     pars.into_iter()
         .map(|par| {
             let mut split_nodes = [
-                UnresolvedNode::new(node.colors.var_select(par, false)),
-                UnresolvedNode::new(node.colors.var_select(par, true))
+                UnresolvedNode::new(node.colors.and_not(par)),
+                UnresolvedNode::new(node.colors.and(par))
             ];
 
             for (colors, driver_set) in &node.driver_sets {
@@ -142,6 +150,7 @@ fn best_decision_par(
             let e2 = sns2[0].entropy() + sns2[1].entropy();
             e1.partial_cmp(&e2).unwrap()
         })
+        .map(|(par, sns)| (par.clone(), sns))
 }
 
 
@@ -237,5 +246,8 @@ fn decision_tree_recursive(
         if value { (subtree_neg_value, subtree_value) }
         else     { (subtree_value, subtree_neg_value) };
 
-    DecisionTree::Node(DecisionNode { childs: [low, high], color_fix: bdd_var })
+    let color_fix = sync_graph.symbolic_context()
+        .bdd_variable_set().mk_var(bdd_var);
+
+    DecisionTree::Node(DecisionNode { childs: [low, high], color_fix })
 }

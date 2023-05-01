@@ -3,7 +3,7 @@ extern crate websocket;
 
 use std::collections::HashMap;
 
-use pbn_ibmfa::utils::add_self_regulations;
+use pbn_ibmfa::utils::{add_self_regulations, bdd_to_str};
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::decision_tree::{DecisionTree, decision_tree};
 
@@ -90,15 +90,14 @@ fn tree_to_str_rec(
             out.push_str(" ]");
         },
         DecisionTree::Node(node) => {
-            let fix_var = node.get_fix();
-            let fix_false = colors.copy(
-                colors.as_bdd().var_select(fix_var, false));
-            let fix_true = colors.copy(
-                colors.as_bdd().var_select(fix_var, true));
+            let fix_bdd = node.get_fix();
+            let fix_false = colors.copy(colors.as_bdd().and_not(fix_bdd));
+            let fix_true = colors.copy(colors.as_bdd().and(fix_bdd));
 
             // Add context for the fixing parameter variable
-            let fix_name = bdd_var_set.name_of(fix_var);
-            let mut fix_opt = None;
+            let fix_name = bdd_to_str(fix_bdd, context);
+            let mut fix_opt: Option<String> = None;
+            /*
             if fix_name.starts_with("f_") {
                 if let Some(index) = fix_name.find('[') {
                     let name = &fix_name[2..index];
@@ -122,6 +121,7 @@ fn tree_to_str_rec(
                     }
                 }
             }
+            */
 
             if let Some(fix) = fix_opt {
                 out.push_str(&fix);

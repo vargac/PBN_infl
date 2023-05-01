@@ -119,7 +119,10 @@ fn main() {
         let (driver_sets, global_driver_set) = &driver_sets_map[&attr];
         println!("{}", pbn_ibmfa::utils::vertices_to_str(attr, context));
         let dtree = decision_tree_from_partition(
-            colors.as_bdd(), driver_sets.as_slice());
+            colors.as_bdd(),
+            driver_sets.as_slice(),
+            context.bdd_variable_set()
+        );
         println!("{}", dtree.to_str(&context));
 
         /*
