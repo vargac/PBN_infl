@@ -7,14 +7,14 @@ use biodivine_lib_param_bn::{BooleanNetwork, FnUpdate};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::
     {GraphColoredVertices, GraphColors, GraphVertices};
-use biodivine_lib_bdd::BddVariable;
+use biodivine_lib_bdd::{BddVariable, Bdd};
 
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::utils::{partial_valuation_to_str, valuation_to_str,
     vertices_to_str, attr_from_str, bdd_to_str, bdd_var_to_str,
     bdd_pick_unsupported, add_self_regulations};
 use pbn_ibmfa::driver_set::{find_driver_set, fixes::DriverSet};
-use pbn_ibmfa::decision_tree::decision_tree;
+use pbn_ibmfa::decision_tree::{decision_tree, decision_tree_from_partition};
 
 
 fn print_update_functions(sync_graph: &SymbSyncGraph) {
@@ -83,9 +83,9 @@ fn main() {
     let iterations = 10;
 
     let mut driver_sets_map = HashMap::new();
-    for (attr, colors) in attrs_map {
+    for (attr, colors) in &attrs_map {
 
-        let mut driver_sets: Vec<(DriverSet, GraphColors)> = Vec::new();
+        let mut driver_sets: Vec<(Bdd, DriverSet)> = Vec::new();
 
         let mut remaining_colors = colors.clone();
         while !remaining_colors.is_empty() {
@@ -99,10 +99,10 @@ fn main() {
 
             let driver_set = pbn_fix.get_driver_set();
             if let Some(i) = driver_sets.iter()
-                    .position(|(driver, _)| *driver == *driver_set) {
-                driver_sets[i].1 = driver_sets[i].1.union(&color);
+                    .position(|(_, driver)| *driver == *driver_set) {
+                driver_sets[i].0 = driver_sets[i].0.or(color.as_bdd());
             } else {
-                driver_sets.push((driver_set.clone(), color));
+                driver_sets.push((color.into_bdd(), driver_set.clone()));
             }
         }
 
@@ -115,14 +115,21 @@ fn main() {
     }
 
     let context = sync_graph.symbolic_context();
-    for (attr, (driver_sets, global_driver_set)) in driver_sets_map.iter() {
+    for (attr, colors) in &attrs_map {
+        let (driver_sets, global_driver_set) = &driver_sets_map[&attr];
         println!("{}", pbn_ibmfa::utils::vertices_to_str(attr, context));
-        for (driver_set, colors) in driver_sets {
+        let dtree = decision_tree_from_partition(
+            colors.as_bdd(), driver_sets.as_slice());
+        println!("{}", dtree.to_str(&context));
+
+        /*
+        for (colors, driver_set) in driver_sets {
             println!("{}: {}",
                 colors.exact_cardinality(),
                 pbn_ibmfa::driver_set::fixes::driver_set_to_str(
                     driver_set, context));
         }
+        */
         println!("GLOBAL: {}",
             pbn_ibmfa::driver_set::fixes::driver_set_to_str(
                 global_driver_set, context));

@@ -1,4 +1,6 @@
-use biodivine_lib_bdd::BddVariable;
+use std::collections::HashSet;
+
+use biodivine_lib_bdd::{BddVariable, Bdd};
 use biodivine_lib_param_bn::symbolic_async_graph::
     {GraphVertices, GraphColors, SymbolicContext};
 
@@ -49,6 +51,116 @@ impl DecisionTree {
         }
     }
 }
+
+
+/*******************************************************************************
+ * Finding a decision tree for a colors partition
+ * ==============================================
+ * Having the colors partitioned and assinged a driver set for each
+ * partition, find a binary decision tree leading to leaves consisting of
+ * the partitions. A decision node contains only a single parameter for now.
+ ******************************************************************************/
+
+struct UnresolvedNode {
+    colors: Bdd,
+    driver_sets: Vec<(Bdd, DriverSet)>,
+}
+
+impl UnresolvedNode {
+    fn new(colors: Bdd) -> Self {
+        UnresolvedNode { colors, driver_sets: Vec::new() }
+    }
+
+    fn entropy(&self) -> f64 {
+        let e = self.driver_sets.iter()
+            .map(|(colors, _)| {
+                let c = colors.cardinality();
+                if c == 0.0 { 0.0 } else { c * c.log2() }
+            }).sum::<f64>();
+        let total = self.colors.cardinality();
+        if total == 0.0 { 0.0 } else { total.log2() - e / total }
+    }
+}
+
+pub fn decision_tree_from_partition(
+    all_colors: &Bdd,
+    driver_sets: &[(Bdd, DriverSet)],
+) -> DecisionTree {
+    fn split_unresolved(
+        mut node: UnresolvedNode,
+        mut pars: HashSet<BddVariable>,
+    ) -> DecisionTree {
+        if node.driver_sets.is_empty() {
+            return DecisionTree::Leaf(DriverSet::new());
+        }
+        if node.driver_sets.len() == 1 {
+            return DecisionTree::Leaf(node.driver_sets.pop().unwrap().1);
+        }
+
+        let (par, split_nodes) =
+            best_decision_par(pars.iter().copied(), &node).unwrap();
+        pars.remove(&par);
+        let trees = split_nodes.map(|split_node|
+                Box::new(split_unresolved(split_node, pars.clone())));
+
+        DecisionTree::Node(DecisionNode { childs: trees, color_fix: par })
+    }
+
+    let node = UnresolvedNode {
+        colors: all_colors.clone(),
+        driver_sets: Vec::from(driver_sets)
+    };
+    split_unresolved(node, all_colors.support_set())
+}
+
+fn best_decision_par(
+    pars: impl IntoIterator<Item = BddVariable>,
+    node: &UnresolvedNode,
+) -> Option<(BddVariable, [UnresolvedNode; 2])> {
+    // Maximization of information gain = Minimization of information entropy
+    pars.into_iter()
+        .map(|par| {
+            let mut split_nodes = [
+                UnresolvedNode::new(node.colors.var_select(par, false)),
+                UnresolvedNode::new(node.colors.var_select(par, true))
+            ];
+
+            for (colors, driver_set) in &node.driver_sets {
+                for split_node in split_nodes.as_mut_slice() {
+                    let subcolors = colors.and(&split_node.colors);
+                    if !subcolors.is_false() {
+                        split_node.driver_sets.push(
+                            (subcolors, driver_set.clone()));
+                    }
+                }
+            }
+
+            (par, split_nodes)
+        })
+        .min_by(|(_, sns1), (_, sns2)| {
+            let e1 = sns1[0].entropy() + sns1[1].entropy();
+            let e2 = sns2[0].entropy() + sns2[1].entropy();
+            e1.partial_cmp(&e2).unwrap()
+        })
+}
+
+
+/*******************************************************************************
+ * Building decision trees along with running the ibmfa simulation.
+ * ================================================================
+ * ibmfa -> driver set -> choose one parameter fix -> make decision node ->
+ * -> restrict colors to a negation of the fix -> ibmfa -> ...
+ * Does not work well. It depends on heuristics on possible parameter
+ * fixes -- single fixes of one parameter are not sufficient, the minimization
+ * greedy search favors fixing vertices rather than parameters (after running
+ * the postprocessing reduction). Even with better heuristics (and thus
+ * having many more parameter fixes -> time complexity grows), the reduction
+ * may still remove all parameter fixes if the "simplest" driver set (e.i.
+ * the first one found) is the one that works as well for other colors.
+ * Those colors may have been fixed because the entropy gets low faster in them.
+ * So it seems to be a good idea to use entropy minimization for finding
+ * vertices fix (the original "driver-set" meaning) but not parameters fix.
+ ******************************************************************************/
 
 pub fn decision_tree(
     sync_graph: &SymbSyncGraph,

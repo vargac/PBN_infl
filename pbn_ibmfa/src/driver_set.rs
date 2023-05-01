@@ -120,7 +120,7 @@ pub fn reduce_driver_set(
             pbn_fix.remove(unit_fix);
             let (ent, _, conv_index) = ibmfa_entropy(
                 &sync_graph, &pbn_fix, iterations,
-                false, explicit_pupdate_funs_opt, true);
+                false, explicit_pupdate_funs_opt, false);
             pbn_fix.insert(unit_fix);
 
             if verbose {
