@@ -13,7 +13,8 @@ use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::utils::{partial_valuation_to_str, valuation_to_str,
     vertices_to_str, attr_from_str, bdd_to_str, bdd_var_to_str,
     bdd_pick_unsupported, add_self_regulations};
-use pbn_ibmfa::driver_set::{find_driver_set, fixes::DriverSet};
+use pbn_ibmfa::driver_set::{find_driver_set, fixes::DriverSet,
+    colors_partition};
 use pbn_ibmfa::decision_tree::{decision_tree, decision_tree_from_partition};
 
 
@@ -84,27 +85,8 @@ fn main() {
 
     let mut driver_sets_map = HashMap::new();
     for (attr, colors) in &attrs_map {
-
-        let mut driver_sets: Vec<(Bdd, DriverSet)> = Vec::new();
-
-        let mut remaining_colors = colors.clone();
-        while !remaining_colors.is_empty() {
-            let color = remaining_colors.pick_singleton();
-            remaining_colors = remaining_colors.minus(&color);
-
-            let (pbn_fix, _) = find_driver_set(
-                &sync_graph, iterations, true, Some((&attr, &color)),
-                true, false);
-            assert!(pbn_fix.get_parameter_fixes().is_empty());
-
-            let driver_set = pbn_fix.get_driver_set();
-            if let Some(i) = driver_sets.iter()
-                    .position(|(_, driver)| *driver == *driver_set) {
-                driver_sets[i].0 = driver_sets[i].0.or(color.as_bdd());
-            } else {
-                driver_sets.push((color.into_bdd(), driver_set.clone()));
-            }
-        }
+        let driver_sets = colors_partition(
+            &sync_graph, iterations, true, (attr, colors), false);
 
         let (global_pbn_fix, _) = find_driver_set(
             &sync_graph, iterations, true, Some((&attr, &colors)),

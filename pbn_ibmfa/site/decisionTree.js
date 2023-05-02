@@ -1,5 +1,6 @@
 function htmlTitle(html) {
     let container = document.createElement('div');
+    container.style.fontSize = '10px';
     container.innerHTML = html;
     return container;
 }
@@ -39,6 +40,7 @@ class DecisionTree {
                 hierarchical: {
                     enabled: true,
                     levelSeparation: 50,
+                    nodeSpacing: 150,
                     sortMethod: 'directed',
                     shakeTowards: 'leaves',
                 },
@@ -87,24 +89,29 @@ class DecisionTree {
             return i + 1;
         }
 
-        let decision = tree[0];
-        let decision_label = undefined, decision_title = undefined;
-        let regs_index = decision.indexOf('(');
-        if (regs_index != -1) {
-            decision_label = decision.slice(0, regs_index);
-            let regs = decision.slice(regs_index + 1, -1);
-            let title = decision_label + '(';
-            for (let reg of regs.split(',')) {
-                let color = reg[0] == '1' ? 'green' : 'red';
-                let name = reg.slice(1);
-                title += `<br>&nbsp;&nbsp;&nbsp;&nbsp;
-                    <span style="color: ${color}">${name}</span>`;
+        let decision_label = '', decision_title = '';
+        let parameters = new Set();
+        for (let decision of tree[0].split(';')) {
+            let regs_index = decision.indexOf('(');
+            if (regs_index != -1) {
+                let regs = decision.slice(regs_index + 1, -1);
+                let title = decision.slice(0, regs_index) + '(';
+                parameters.add(decision.slice(
+                    decision.startsWith('!') ? 1 : 0, regs_index));
+                for (let reg of regs.split(',')) {
+                    let color = reg[0] == '1' ? 'green' : 'red';
+                    let name = reg.slice(1);
+                    title += `<span style="color: ${color}">${name}</span> `;
+                }
+                decision_title += title.slice(0, -1) + ')';
+            } else {
+                parameters.add(decision);
+                decision_title += decision;
             }
-            title += '<br>) = ?';
-            decision_title = htmlTitle(title);
-        } else {
-            decision_label = decision_title = decision;
+            decision_title += '<br>';
         }
+        decision_title = htmlTitle(decision_title);
+        decision_label = Array.from(parameters).join('\n');
 
         let colors_false = tree[1], colors_true = tree[2];
         let read = 3;

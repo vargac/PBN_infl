@@ -6,12 +6,43 @@ use biodivine_lib_bdd::Bdd;
 
 use crate::symbolic_sync_graph::{SymbSyncGraph, PUpdateFunExplicit};
 use crate::ibmfa_computations::{minimize_entropy, ibmfa_entropy};
-use fixes::{UnitVertexFix, UnitParameterFix};
+use fixes::{UnitVertexFix, UnitParameterFix, DriverSet};
 pub use fixes::{PBNFix, UnitFix, driver_set_to_str};
 
 
 pub mod fixes;
 
+
+pub fn colors_partition(
+    sync_graph: &SymbSyncGraph,
+    iterations: usize,
+    reduced: bool,
+    attr: (&GraphVertices, &GraphColors),
+    verbose: bool,
+) -> Vec<(Bdd, DriverSet)> {
+    let mut driver_sets: Vec<(Bdd, DriverSet)> = Vec::new();
+
+    let mut remaining_colors = attr.1.clone();
+    while !remaining_colors.is_empty() {
+        let color = remaining_colors.pick_singleton();
+        remaining_colors = remaining_colors.minus(&color);
+
+        let (pbn_fix, _) = find_driver_set(
+            sync_graph, iterations, reduced, Some((attr.0, &color)),
+            true, verbose);
+        assert!(pbn_fix.get_parameter_fixes().is_empty());
+
+        let driver_set = pbn_fix.get_driver_set();
+        if let Some(i) = driver_sets.iter()
+                .position(|(_, driver)| *driver == *driver_set) {
+            driver_sets[i].0 = driver_sets[i].0.or(color.as_bdd());
+        } else {
+            driver_sets.push((color.into_bdd(), driver_set.clone()));
+        }
+    }
+
+    driver_sets
+}
 
 pub fn find_driver_set(
     sync_graph: &SymbSyncGraph,
