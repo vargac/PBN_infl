@@ -61,6 +61,7 @@ impl DecisionTree {
  * the partitions. A decision node contains only a single parameter for now.
  ******************************************************************************/
 
+#[derive(Debug, Clone)]
 struct UnresolvedNode {
     colors: Bdd,
     driver_sets: Vec<(Bdd, DriverSet)>,
@@ -90,24 +91,36 @@ pub fn decision_tree_from_partition(
     fn split_unresolved(
         mut node: UnresolvedNode,
         mut pars: HashSet<Bdd>,
+        bdd_variable_set: &BddVariableSet,
     ) -> DecisionTree {
-        if node.driver_sets.is_empty() {
-            return DecisionTree::Leaf(DriverSet::new());
-        }
+        assert!(!node.driver_sets.is_empty());
         if node.driver_sets.len() == 1 {
             return DecisionTree::Leaf(node.driver_sets.pop().unwrap().1);
         }
 
-        let (par, split_nodes) =
-            best_decision_par(&pars, &node).unwrap();
-        pars.remove(&par);
-        let trees = split_nodes.map(|split_node|
-                Box::new(split_unresolved(split_node, pars.clone())));
+        let mut bdd = bdd_variable_set.mk_true();
+        loop {
+            let (par, split_nodes) =
+                best_decision_par(&pars, &node).unwrap();
+            pars.remove(&par);
 
-        DecisionTree::Node(DecisionNode {
-            childs: trees,
-            color_fix: par
-        })
+            if split_nodes[0].driver_sets.is_empty() {
+                bdd = bdd.and(&par);
+                node = split_nodes[1].clone();
+            } else if split_nodes[1].driver_sets.is_empty() {
+                bdd = bdd.and_not(&par);
+                node = split_nodes[0].clone();
+            } else {
+                let trees = split_nodes.map(|split_node|
+                        Box::new(split_unresolved(
+                                split_node, pars.clone(), bdd_variable_set)));
+
+                return DecisionTree::Node(DecisionNode {
+                    childs: trees,
+                    color_fix: bdd.and(&par)
+                });
+            }
+        }
     }
 
     let node = UnresolvedNode {
@@ -118,7 +131,7 @@ pub fn decision_tree_from_partition(
         .map(|bdd_var| bdd_variable_set.mk_var(*bdd_var))
         .collect::<HashSet<_>>();
 
-    split_unresolved(node, pars)
+    split_unresolved(node, pars, bdd_variable_set)
 }
 
 fn best_decision_par<'a>(
