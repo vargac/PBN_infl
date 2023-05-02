@@ -94,6 +94,10 @@ h3 {
     height: 70%;
 }
 
+.var_bit {
+    font-family: monospace, monospace;
+}
+
 
 /** TABLES **/
 

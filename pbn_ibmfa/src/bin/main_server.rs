@@ -5,8 +5,11 @@ use std::collections::HashMap;
 
 use pbn_ibmfa::utils::{add_self_regulations, bdd_to_str};
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
-use pbn_ibmfa::driver_set::colors_partition;
+use pbn_ibmfa::driver_set::{colors_partition, find_driver_set,
+    fixes::DriverSet};
 use pbn_ibmfa::decision_tree::{DecisionTree, decision_tree_from_partition};
+
+use biodivine_lib_bdd::BddVariableSet;
 
 use biodivine_lib_param_bn::{BooleanNetwork,
     symbolic_async_graph::{GraphColoredVertices, GraphColors, SymbolicContext}};
@@ -19,7 +22,7 @@ const ITERATIONS: usize = 10;
 struct SessionData {
     sync_graph: Option<SymbSyncGraph>,
     attrs: Option<Vec<GraphColoredVertices>>,
-    dtree_cache: HashMap<usize, DecisionTree>,
+    cache: HashMap<usize, (DecisionTree, DriverSet)>,
 }
 
 impl SessionData {
@@ -27,7 +30,7 @@ impl SessionData {
         SessionData {
             sync_graph: None,
             attrs: None,
-            dtree_cache: HashMap::new(),
+            cache: HashMap::new(),
         }
     }
 }
@@ -60,14 +63,34 @@ fn attrs_to_msg(attrs: &[GraphColoredVertices], context: &SymbolicContext)
     OwnedMessage::Text(msg_str)
 }
 
-fn tree_to_msg(
+fn tree_and_dset_to_msg(
     tree: &DecisionTree,
+    dset: &DriverSet,
     colors: &GraphColors,
     sync_graph: &SymbSyncGraph
 ) -> OwnedMessage {
     let mut buffer = String::new();
+    driver_set_to_str(dset, sync_graph.symbolic_context(), &mut buffer);
+    buffer.push(' ');
     tree_to_str_rec(tree, colors, sync_graph, &mut buffer);
     OwnedMessage::Text(buffer)
+}
+
+fn driver_set_to_str(
+    driver_set: &DriverSet,
+    context: &SymbolicContext,
+    out: &mut String,
+) {
+    let bdd_var_set = context.bdd_variable_set();
+    out.push('[');
+    for (var_id, val) in driver_set {
+        out.push(' ');
+        out.push_str(&bdd_var_set.name_of(
+                context.get_state_variable(*var_id)));
+        out.push('=');
+        out.push(if *val { '1' } else { '0' });
+    }
+    out.push_str(" ]");
 }
 
 fn tree_to_str_rec(
@@ -80,15 +103,7 @@ fn tree_to_str_rec(
     let bdd_var_set = context.bdd_variable_set();
     match tree {
         DecisionTree::Leaf(driver_set) => {
-            out.push('[');
-            for (var_id, val) in driver_set {
-                out.push(' ');
-                out.push_str(&bdd_var_set.name_of(
-                        context.get_state_variable(*var_id)));
-                out.push('=');
-                out.push(if *val { '1' } else { '0' });
-            }
-            out.push_str(" ]");
+            driver_set_to_str(driver_set, context, out);
         },
         DecisionTree::Node(node) => {
             let fix_bdd = node.get_fix();
@@ -172,21 +187,26 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
                     Some(attrs) => {
                         let id = msg.rsplit(' ').next().unwrap()
                             .parse::<usize>().unwrap();
-                        let dtree = session_data.dtree_cache
+                        let (dtree, dset) = session_data.cache
                             .entry(id)
                             .or_insert_with(|| {
                                 let attr = &attrs[id];
+                                let attr = (&attr.vertices(), &attr.colors());
                                 let driver_sets = colors_partition(
-                                    &sync_graph, ITERATIONS, true,
-                                    (&attr.vertices(), &attr.colors()), false
-                                );
-                                decision_tree_from_partition(
-                                    attr.colors().as_bdd(),
+                                    sync_graph, ITERATIONS, true, attr, false);
+                                let dtree = decision_tree_from_partition(
+                                    attr.1.as_bdd(),
                                     driver_sets.as_slice(),
                                     context.bdd_variable_set()
-                                )
+                                );
+                                let (pbn_fix, _) = find_driver_set(
+                                    sync_graph, ITERATIONS,
+                                    true, Some(attr), true, false
+                                );
+                                (dtree, pbn_fix.get_driver_set().clone())
                             });
-                        Ok(tree_to_msg(&dtree, &attrs[id].colors(), sync_graph))
+                        Ok(tree_and_dset_to_msg(
+                            &dtree, &dset, &attrs[id].colors(), sync_graph))
                     }
                 }
             } else {
