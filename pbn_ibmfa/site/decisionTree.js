@@ -21,9 +21,16 @@ class DecisionTree {
     show(tree_str, attractor) {
         let nodes = [];
         let edges = [];
-        let entropy = { value: 0.0 };
+        let partition = new Map();
         let colors = +attractor.colors;
-        this.parse(tree_str.split(' '), colors, nodes, edges, entropy);
+
+        this.parse(tree_str.split(' '), colors, nodes, edges, partition);
+        for (let node of nodes) {
+            let dset_colors = partition.get(node.label);
+            if (dset_colors) {
+                node.title.innerHTML += `<br>Total colors: ${dset_colors}`;
+            }
+        }
 
         let data = {
             nodes: new vis.DataSet(nodes),
@@ -59,11 +66,15 @@ class DecisionTree {
             network.setOptions({layout: { hierarchical: false}});
         };
 
-        let e = - (entropy.value / colors - Math.log2(colors));
-        return e < 0 ? 0 : e;
+        let ent = 0.0;
+        for (let count of partition.values()) {
+            ent += count * Math.log2(count);
+        }
+        ent = - (ent / colors - Math.log2(colors));
+        return ent < 0 ? 0 : ent;
     }
 
-    parse(tree, colors, nodes, edges, entropy) {
+    parse(tree, colors, nodes, edges, partition) {
         if (tree[0] == '[') {
             let i = 1;
             let title = '';
@@ -85,7 +96,12 @@ class DecisionTree {
                 title: htmlTitle(title),
                 label: label,
             });
-            entropy.value += colors * Math.log2(colors);
+
+            if (!partition.has(label)) {
+                partition.set(label, +colors);
+            } else {
+                partition.set(label, partition.get(label) + +colors);
+            }
             return i + 1;
         }
 
@@ -116,10 +132,14 @@ class DecisionTree {
         let colors_false = tree[1], colors_true = tree[2];
         let read = 3;
         read += this.parse(
-            tree.slice(read, tree.length), colors_false, nodes, edges, entropy);
+            tree.slice(read, tree.length), colors_false,
+            nodes, edges, partition
+        );
         let left = nodes[nodes.length - 1].id;
         read += this.parse(
-            tree.slice(read, tree.length), colors_true, nodes, edges, entropy);
+            tree.slice(read, tree.length), colors_true,
+            nodes, edges, partition
+        );
         let right = nodes[nodes.length - 1].id;
         let current = right + 1;
 
