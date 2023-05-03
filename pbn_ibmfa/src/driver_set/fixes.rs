@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use biodivine_lib_bdd::{Bdd, BddVariable};
 use biodivine_lib_param_bn::{VariableId,
@@ -25,7 +25,7 @@ pub enum UnitFix {
     Parameter(UnitParameterFix),
 }
 
-pub type DriverSet = HashMap<VariableId, bool>;
+pub type DriverSet = BTreeMap<VariableId, bool>;
 pub type ColorsFix = Bdd;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,7 +76,7 @@ impl UnitFix {
 impl PBNFix {
     pub fn new(unit_bdd: Bdd) -> Self {
         PBNFix {
-            driver_set: HashMap::new(),
+            driver_set: DriverSet::new(),
             colors_fix: unit_bdd.iff(&unit_bdd), // hack to create true bdd
             parameter_fixes: HashSet::new(),
             unit_bdd,

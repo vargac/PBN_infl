@@ -9,3 +9,5 @@ edition = "2021"
 biodivine-lib-bdd = "0.4.2"
 biodivine-lib-param-bn = "0.4.4"
 websocket = "0.26.5"
+json = "0.12.4"
+clap = { version = "4.2.7", features = ["derive"] }

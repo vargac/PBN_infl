@@ -176,8 +176,8 @@ fn get_response(msg: OwnedMessage, session_data: &mut SessionData)
             println!("Command {msg}");
             if msg == "START" {
                 let mut attrs = sync_graph.fixed_point_attractors();
-                attrs.sort_by(|a1, a2| a2.colors().exact_cardinality()
-                    .cmp(&a1.colors().exact_cardinality())); // descending
+                attrs.sort_by(|a1, a2| a2.exact_cardinality()
+                    .cmp(&a1.exact_cardinality())); // descending
                 let msg = attrs_to_msg(&attrs, context);
                 session_data.attrs = Some(attrs);
                 Ok(msg)
