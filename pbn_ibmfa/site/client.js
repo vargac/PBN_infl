@@ -50,7 +50,8 @@ window.onload = function() {
     function connect(port) {
         ws = new WebSocket(`ws://127.0.0.1:${port}/`);
         ws.timId = setTimeout(
-            () => { alert("Could not connect. (Re)start the server."); },
+            () => { alert('Could not connect. Check the port number'
+                    + ' or (re)start the server.'); },
             500
         );
         ws.onopen = onopen;
