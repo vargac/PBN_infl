@@ -1,3 +1,4 @@
+// Copied from: github.com/sybila/biodivine-lib-param-bn/src/symbolic_async_graph/_impl_regulation_constraint.rs
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use biodivine_lib_param_bn::{BooleanNetwork, Monotonicity};
 use biodivine_lib_bdd::{bdd, Bdd};
