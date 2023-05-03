@@ -1,0 +1,22 @@
+#position:v_her6:0,0
+$v_her6:(!v_miR_9 & !v_Neural_Precursor)
+v_miR_9 -| v_her6
+v_Neural_Precursor -| v_her6
+#position:v_miR_9:0,0
+$v_miR_9:(!v_her6 & !v_Neural_Precursor)
+v_her6 -| v_miR_9
+v_Neural_Precursor -| v_miR_9
+#position:v_Neural_Precursor:0,0
+v_elavl3_HuC -?? v_Neural_Precursor
+#position:v_zic5:0,0
+$v_zic5:(!v_miR_9 & !v_Neural_Precursor)
+v_miR_9 -| v_zic5
+v_Neural_Precursor -| v_zic5
+#position:v_elavl3_HuC:0,0
+$v_elavl3_HuC:(!v_miR_9 & !v_Progenitor)
+v_miR_9 -| v_elavl3_HuC
+v_Progenitor -| v_elavl3_HuC
+#position:v_Progenitor:0,0
+$v_Progenitor:((!v_her6 & v_zic5) | v_her6)
+v_her6 -> v_Progenitor
+v_zic5 -> v_Progenitor

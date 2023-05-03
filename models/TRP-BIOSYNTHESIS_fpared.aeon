@@ -1,0 +1,19 @@
+#position:v_Trpext_b1:-268.9187567053134,214.79478966404605
+#position:v_Trpext_b2:112.5290692369949,56.5
+v_Trpext_b1 -> v_Trpext_b2
+v_Trpext_b2 -> v_Trpext_b2
+#position:v_Trp_b1:70.52231076440751,425.789868601865
+v_Trpext_b1 -> v_Trp_b1
+v_Trp_b1 -> v_Trp_b1
+v_Trp_b2 -> v_Trp_b1
+v_TrpE -> v_Trp_b1
+#position:v_Trp_b2:130.94073682366795,260.6808550021564
+v_Trpext_b1 -> v_Trp_b2
+v_Trpext_b2 -> v_Trp_b2
+v_Trp_b1 -> v_Trp_b2
+#position:v_TrpE:131.08422213841317,582.61360128501
+v_Trp_b1 -| v_TrpE
+v_TrpR -| v_TrpE
+#position:v_TrpR:183.91244575883871,427.89274368262113
+v_Trp_b1 -> v_TrpR
+v_Trp_b2 -> v_TrpR
