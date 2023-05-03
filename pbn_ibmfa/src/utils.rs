@@ -89,3 +89,31 @@ pub fn vertices_to_str(vertices: &GraphVertices, context: &SymbolicContext)
                 .collect::<String>()))
         .collect::<String>())
 }
+
+pub fn print_update_functions(sync_graph: &SymbSyncGraph) {
+    for pupdate_function in sync_graph.get_pupdate_functions() {
+        let parametrizations = pupdate_function.get_parametrizations();
+        println!("{}", 
+            bdd_to_str(&parametrizations, sync_graph.symbolic_context()));
+
+        let pars = sync_graph.get_all_false()
+            .project(pupdate_function.get_parameters())
+            .and(parametrizations);
+
+        for parametrization in pars.sat_valuations() {
+            println!("Parametrization: {}", valuation_to_str(
+                    &parametrization,
+                    pupdate_function.get_parameters().iter().copied(),
+                    sync_graph.symbolic_context()));
+            let f = pupdate_function.restricted(&parametrization);
+            println!("Update function: {}",
+                bdd_to_str(&f, sync_graph.symbolic_context()));
+
+            for valuation in f.sat_clauses() {
+                println!("\t{}", partial_valuation_to_str(
+                        &valuation, sync_graph.symbolic_context()));
+            }
+        }
+        println!();
+    }
+}
