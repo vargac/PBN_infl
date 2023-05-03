@@ -1,5 +1,4 @@
 use std::{process, fs};
-use std::collections::HashMap;
 
 use biodivine_lib_bdd::{BddVariable, BddVariableSet};
 use biodivine_lib_param_bn::BooleanNetwork;
@@ -11,7 +10,7 @@ use clap::Parser;
 
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::utils::add_self_regulations;
-use pbn_ibmfa::decision_tree::decision_tree;
+
 use pbn_ibmfa::driver_set::{find_driver_set, colors_partition,
     fixes::DriverSet};
 

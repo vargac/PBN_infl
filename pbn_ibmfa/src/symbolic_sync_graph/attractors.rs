@@ -74,6 +74,8 @@ impl SymbSyncGraph {
     }
 }
 
+/// Postprocess after running SymbSyncGraph::attractors.
+#[allow(dead_code)]
 pub fn compute_attrs_map(attrs: &[GraphColoredVertices])
 -> HashMap<GraphVertices, GraphColors> {
     let mut attrs_map = HashMap::new();
