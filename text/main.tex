@@ -1,0 +1,196 @@
+\documentclass[
+	digital, oneside, nosansbold, nocolorbold, nolot, nolof
+]{fithesis4}
+
+\usepackage[resetfonts]{cmap}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+
+\thesissetup{
+    date        = \the\year/\the\month/\the\day,
+    university  = mu,
+    faculty     = fi,
+	department  = {Department of Machine Learning and Data Processing},
+    type        = mgr,
+    author      = Šimon Varga,
+    gender      = m,
+    advisor     = {prof. RNDr. Luboš Brim, CSc.},
+    title       = {%
+		Influence maximization in partially specified Boolean networks},
+    keywords    = {keyword1, keyword2, ...},
+    abstract    = {%
+      This is the abstract of my thesis, which can
+
+      span multiple paragraphs.
+    },
+    thanks      = {%
+      These are the acknowledgements for my thesis, which can
+
+      span multiple paragraphs.
+    },
+    bib         = bib.bib,
+    facultyLogo = fithesis-fi,
+}
+
+\usepackage{makeidx}      %% The `makeidx` package contains
+\makeindex                %% helper commands for index typesetting.
+%% These additional packages are used within the document:
+\usepackage{amsmath}  %% Mathematics
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{IEEEtrantools}
+\usepackage{tikz}
+\usetikzlibrary{shapes, positioning}
+\usepackage{url}      %% Hyperlinks
+\usepackage{listings} %% Source code highlighting
+\lstset{
+  basicstyle      = \ttfamily,
+  identifierstyle = \color{black},
+  keywordstyle    = \color{blue},
+  keywordstyle    = {[2]\color{cyan}},
+  keywordstyle    = {[3]\color{olive}},
+  stringstyle     = \color{teal},
+  commentstyle    = \itshape\color{magenta},
+  breaklines      = true,
+}
+\usepackage{floatrow} %% Putting captions above tables
+\floatsetup[table]{capposition=top}
+\usepackage[babel]{csquotes} %% Context-sensitive quotation marks
+
+
+
+\begin{document}
+
+\chapter{Introduction}
+
+\paragraph{Systems biology}
+
+A common trait among all humans is a desire to know, to understand. Aristotle
+(384--322~BC) described this desire in his work Metaphysics~\cite{aristotle}:
+
+\blockquote[Aristotle]{All men by nature desire to know. An indication of this
+    is the delight we take in our senses; for even apart from their usefulness
+    they are loved for themselves; and above all others the sense of sight. For
+    not only with a view to action, but even when we are not going to do
+    anything, we prefer sight to almost everything else. The reason is that
+    this, most of all the senses, makes us know and brings to light many
+    differences between things.}
+
+A human ambition to see, to explore the world around and inside us has emerged
+into many sciences -- one of them being biology, a scientific study of life.
+There is a visible trend of \emph{reductionism} interweaving the history of
+biology. In the 17th century, René Descartes (1596--1650) stated that complex
+systems could be understood by looking into the smaller parts inside the system
+and then reassembly them into the whole. Although biology has not yet existed
+back then as a scientific discipline of today and the main areas affected by
+Descartes' idea of reductionism were mathematics and physics, he also published
+his notion of non-human animals being complex automatons designed by a God. He
+claimed that such an automaton can be described in a reductionist and
+mechanistic way.~\cite{systems_bio_hist, de_homine}
+
+A change in this concept arose in the early part of the 20th century. An
+influential work by Norbert Wiener (1894--1964) asked for more system-level
+understanding~\cite{cybernetics}.  Many biologists expressed objections against
+reductionist attitudes~\cite{woodger_biological, weiss_problem, ludwig_open}. A
+new language was used, with dominant terms like complexity, organization,
+uniqueness, emergence, unpredictability, and interconnectedness. Reductionistic
+and mechanistic biology lacks a view of the vital orchestration of components.
+Against reductionism, another paradigm started to be articulated more --
+\emph{holism}, coined by Jan Smuts (1870--1950), naturalist, philosopher, and
+twice Prime Minister of South Africa~\cite{smuts_holism}.
+
+Although these two theories -- reductionism and holism -- are often put in
+contrast to each other, no opposition but reconciliation is needed. It is
+important to explore the smaller subsystems, tiny components, and how they
+function on their own (reductionism). However, it is not less important to look
+at the system from above to explore possible emergent features resulting from
+the interplay between components (holism).~\cite{systems_bio_hist}
+
+A nice example is an aggregate motion of a flock of birds.
+Reynolds~\cite{reynolds_flock} published a computer simulation where each
+agent-bird behaves accordingly to a relatively simple set of rules. A
+reductionist scientist could explore these rules and understand the bird's sole
+behavior but could not find any evidence among the rules of the amazing
+phenomenon because it emerges from the interactions between the components
+(birds). A set of simple rules orchestrating the components emerged in the
+complex behavior of the whole system -- this is something central to a new
+approach in biology rising from holism: \emph{Systems biology}.
+
+To study even a small entity -- a cell -- from the system-wide perspective, one
+has to combine interactions of many components on different levels: genome,
+transcriptome, proteome, and metabolome space. Processing such a huge amount of
+information requires computational methods and software infrastructure,
+critical components for systems biology research.~\cite{kitano_overview,
+systems_bio_methods}
+
+\paragraph{Boolean networks}
+
+Systems biology models of living systems' dynamics may be categorized as
+qualitative or quantitative. An example of a qualitative model is a set of ODE
+(ordinary differential equations) precisely describing the kinetics of
+processes in the system. Experimental inference of all the kinetic parameters
+is usually a complex task. At this place, systems biology benefits from
+qualitative models. This work targets one concrete: \emph{Boolean networks}
+(BN). BN is a simple model introduced by Stuart Kauffman in 1969 for genetic
+regulatory networks (GRN), consisting of simple boolean variables for
+components of the GRN (proteins, genes, and metabolites) and discrete relations
+between them.  Each variable represents the component being active or not. If
+the component is a gene, then the variable represents whether the gene is
+transcribed or not. In the case of metabolites or proteins, it may represent
+whether the amount of metabolite or protein is sufficient for some reaction.
+Boolean functions define the relations between the
+variables.~\cite{concepts_bn} Even after such a modeling reduction from the
+real-world living system, BNs still may illustrate various processes such as
+heart development~\cite{heart_development} and aging of organisms~\cite{aging}.
+
+BNs play an important role in systems biology, but it is often hard to infer
+the boolean functions controlling the system. A knowledge that some protein
+\(a\) and \(b\) activate another protein \(c\) is insufficient because both
+boolean functions \(a \land b\) and \(a \lor b\) are consistent with the
+knowledge. This uncertainty may be expressed in a \emph{parametrised boolean
+network} (PBN), a more general version of BN.
+
+\paragraph{Attractors and control}
+
+One crucial question about any system is: \enquote{How will the system look
+after a long time? Will it settle and not change anymore?} The state the system
+will eventually evolve into and never leave is called an \emph{attractor}. Such
+a state does not have to be single; an attractor may also consist of multiple
+states. In that case, the system switches among the states and visits each
+infinitely often, but again, only those states in the attractor, no others.. In
+the context of systems biology, an attractor is called a \emph{phenotype} as
+well.
+
+Finding a control strategy that drives the system to a desired attractor is
+beneficial for many applications, for example, identifying key therapeutic
+targets for controlling pathways of regulatory and signaling networks,
+providing a basis for designing \emph{in vitro} cell reprogramming experiments,
+and many more~\cite{control_psbn}. It is known that this problem is
+\(\mathcal{NP}\)-hard in general for boolean networks, but effective
+approximations exist ranging from linear to cubic time
+complexities~\cite{control_akutsu}. Last year, T.~Parmer et~al. presented an
+article~\cite{infl_max_BN} with a novel approximation approach based on a
+well-studied problem of \emph{influence maximization} for spreading processes
+in social networks.
+
+It became a stimulus for this thesis. T.~Parmer later published
+\cite{parmer_dynamical}~and~\cite{parmer_phd}, elaborating more on influence
+and control in network-based models. However, to the best of our knowledge, no
+attempt to generalize to parametrized boolean networks has been published yet.
+Thus, in this work, we aim to adjust their idea to work with PBNs, benchmark on
+a suitable set of networks, and design a simple, user-friendly GUI to analyze
+models of the user's choice.
+
+% TODO is this neccessary?
+%\makeatletter\thesis@blocks@clear\makeatother
+%\phantomsection %% Print the index and insert it into the
+%\addcontentsline{toc}{chapter}{\indexname} %% table of contents.
+%\printindex
+
+\appendix
+\chapter{An appendix}
+Here you can insert the appendices of your thesis.
+
+\end{document}
