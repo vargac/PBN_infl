@@ -709,6 +709,42 @@ mean-field approximations are used to cope with this exponential explosion:
         a given state at time $t$.
 \end{description}
 
+\subsection{Individual-based mean-field approximation for boolean networks}
+
+T.~Parmer~et~al.~\cite{infl_max_BN} presented a novel approach to
+individual-based mean-field approximation (IBMFA) applicable to a boolean
+network analogic to IBMFA used for pandemic-spreading processes in network
+models. The published approximation algorithm aims to estimate the average
+dynamics of the system. The brute-force solution would be to consider all
+possible initial configurations (states), simulate the dynamics for each one,
+and then calculate the average. The time complexity rises fast, as the number
+of possible states is exponential to the number of variables.  The proposed
+method neglects the dynamic correlations between variables, making the
+computation tractable. Here, we shortly describe the method.
+
+\begin{ldefinition}
+We describe the average dynamics of a BN $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ by
+a Markov process $\set*{\sigma}_{t = 0}^T$, where $\sigma(t) =
+(\sigma_{v_1}(t), \sigma_{v_2}(t), \ldots, \sigma_{v_n}(t))$ and $\set{v_1,
+v_2, \ldots, v_n} = V$. A probability the boolean variable $v$ is in the state
+1 at time step $t$ is denoted $\sigma_{v}(t)$. We call $\sigma(t)$ a
+\enquote{\emph{probabilistic state}} or just a \enquote{state} or
+\enquote{configuration}, when the distinction is clear from the context. So,
+$\sigma(0)$ denotes an initial configuration.
+
+The dynamics is approximated in the following way:
+\[
+    \sigma_v(t + 1)
+    = \sum_{\substack{\nu \in \set{0, 1}^V \\
+            \BNUFs{F}_v(\nu\restriction C(v)) = 1}} 
+        \prod_{u \in V}
+            \left[ \sigma_u(t) \right]^{\nu(u)}
+            \cdot \left[ 1 - \sigma_u(t) \right]^{1 - \nu(u)}
+\]
+\end{ldefinition}
+
+%\subsection{Control of BNs revisited as influence maximization}
+
 
 
 \section{Parametrized boolean networks}
