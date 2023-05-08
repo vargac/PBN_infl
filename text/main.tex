@@ -652,6 +652,70 @@ system toward the other attractor $\state{001}$.
 \end{lexample}
 
 
+\section{Mean-field approximations}
+
+The theory of mean-field approximations is mainly adopted from the dissertation
+of T.~Parmer~\cite{parmer_phd}.
+
+\emph{Mean-field methods} were originally developed for physics to lower the
+number of dimensions of complex models. The idea is to approximate by averaging
+(thus \enquote{mean}) over some degrees of freedom in the system. The
+component's interactions with many other parts in the model are substituted by
+an interaction with this (averaged) \enquote{mean-field}. These methods may
+give helpful insight into the system's overall behavior, neglecting local
+effects\footnote{A good explanatory (although not practical) example is a
+    mean-field approximation of \emph{cellular automata}~\cite{mean_field_ca}.
+    The \enquote{mean-field} is just the portion of cells in state 1. Then,
+    each cell is supposed to interact with its neighbors, but effectively, only
+    a probability of a neighbor being in state 1 is considered (and it is equal
+    to the \enquote{mean-field}). The result is a time series of the
+    mean-field likelihood.}.
+
+But they are not used only in physics. Approximations using mean-field methods
+have been extensively adopted for studying spreading processes on networks,
+specifically to address the problem of epidemics~\cite{pastor_epidemic,
+yang_epidemic}. The simple SIS
+model\footnote{\url{https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology}}
+has two possible types of individuals (also called \emph{compartments}):
+Susceptible and Infectious. One can make use of mean-field approximation
+provided the population is modeled as infinite and well-mixed.  Then just the
+densities of compartments are considered, leading to simple differential
+equations. However, the assumption of random interactions among an infinite
+number of individuals is only a little applicable to real-world situations.
+Therefore, the network models are commonly used, where each individual
+interacts with several neighbors. But the network model makes the prediction
+computationally harder because a pandemic spreading in a population of size $n$
+can be described using a \emph{Markov process} of $n$ random variables $X_i$.
+This leads to an exponential number of equations, as $2^n$ possible network
+configurations $X = (X_1, X_2, \ldots, X_n)$ exist. Commonly, two methods of
+mean-field approximations are used to cope with this exponential explosion:
+
+\begin{description}
+    \item[Individual-based] Assumes statistical independence of any two
+        neighbors. Informally, when two neighboring individuals $X_1$ and $X_2$
+        have a common neighbor $X_3$, he affects both $X_1$ and $X_2$. The
+        probability of $X_1(t)$ being infectious is bound to the probability of
+        $X_2(t)$ being infectious. The likelihoods depend on each other. But
+        this dependence between $X_1$ and $X_2$ is neglected:
+        \[
+            P(X_1(t) = \text{I} \land X_2(t) = \text{I}) =
+            P(X_1(t) = \text{I}) \cdot P(X_2(t) = \text{I}),
+        \]
+        leading to a simpler formula for a probability of an individual being
+        infectious.
+    \item[Degree-based] Instead of assuming neighbors are independent, it
+        assumes the statistical equality of all the nodes of the same degree.
+        Practically, it finds the probability that a node of degree $k$ is in
+        a given state at time $t$.
+\end{description}
+
+
+
+\section{Parametrized boolean networks}
+
+\section{Problem formulation}
+
+
 % TODO is this neccessary?
 %\makeatletter\thesis@blocks@clear\makeatother
 %\phantomsection %% Print the index and insert it into the
