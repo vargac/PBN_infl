@@ -36,11 +36,12 @@
 \usepackage{makeidx}      %% The `makeidx` package contains
 \makeindex                %% helper commands for index typesetting.
 %% These additional packages are used within the document:
-\usepackage{amsmath}  %% Mathematics
+\usepackage{mathtools}
 \usepackage{amsthm}
 \usepackage{amssymb}
 \usepackage{amsfonts}
 \usepackage{IEEEtrantools}
+\usepackage{subcaption}
 \usepackage{tikz}
 \usetikzlibrary{shapes, positioning}
 \usepackage{url}      %% Hyperlinks
@@ -58,6 +59,41 @@
 \usepackage{floatrow} %% Putting captions above tables
 \floatsetup[table]{capposition=top}
 \usepackage[babel]{csquotes} %% Context-sensitive quotation marks
+
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+
+\theoremstyle{definition}
+\newtheorem{example}{Example}
+
+\newenvironment{ldefinition}
+    {\begin{definition}}
+	{\par\hspace{\stretch{1}}$\spadesuit$\hspace{\stretch{1}}
+     \par\end{definition}}
+
+\newenvironment{lexample}
+    {\begin{example}}
+    {\par\hspace{\stretch{1}}\rule{0.2\textwidth}{0.01ex}\hspace{\stretch{1}}
+     \par\end{example}}
+
+
+\DeclareMathOperator{\stg}{stg}
+
+\NewDocumentCommand{\BN}{m}{\mathcal{#1}}
+\NewDocumentCommand{\BNRs}{m}{\mathcal{#1}} % BN Regulations
+\NewDocumentCommand{\BNUFs}{m}{\mathcal{#1}} % BN Update Functions
+\NewDocumentCommand{\state}{m}{\mathtt{#1}} % State (for triplets 101, ...)
+\NewDocumentCommand{\attr}{m}{\mathcal{#1}} % Attractor
+
+\NewDocumentCommand{\BNt}{m}{\to_{\BN{#1}}} % BN transition
+\NewDocumentCommand{\BNtc}{m}{\rightsquigarrow_{\BN{#1}}} % transitive closure
+
+\NewDocumentCommand{\dset}{m}{\mathfrak{#1}} % driver set
+
+\NewDocumentCommand{\dom}{m}{\mathcal{D}(#1)} % domain
+
+\DeclarePairedDelimiter{\set}{\{}{\}}
 
 
 
@@ -182,6 +218,436 @@ attempt to generalize to parametrized boolean networks has been published yet.
 Thus, in this work, we aim to adjust their idea to work with PBNs, benchmark on
 a suitable set of networks, and design a simple, user-friendly GUI to analyze
 models of the user's choice.
+
+
+\chapter{Preliminaries}
+
+This chapter provides theoretical background related to our work, all the
+definitions with examples to facilitate understanding, and the final problem
+formulation. For a more in-depth description, we refer a reader to other
+articles: for boolean networks~\cite{concepts_bn}, for parametrized
+BNs~\cite{kadlecaj_thesis}, and finally for controlling BNs~\cite{infl_max_BN}.
+The definitions and notions in our work are adopted from those articles.
+
+\section{Boolean network}
+
+The introduction chapter presented boolean networks in an informal, intuitive
+way. Now, we show a solid mathematical definition here.
+
+\begin{ldefinition}
+A \emph{boolean network} is a 3-tuple $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$,
+where:
+\begin{description}
+\item[$V = \{a, b, c, \ldots \}$] stands for a finite set of
+    \emph{boolean variables}, which take on values from $\set{0, 1}$.
+\item[$\BNRs{R} \subseteq V^2$] is a set of regulations $(a, b)$. We write
+    that the variable $a$ \emph{regulates} the variable $b$, meaning $a$
+    appears in the update function for $b$. \emph{Context} of a variable
+    $a$ is a set of its regulators
+    \[C_{\BN{B}}(a) = \set{b \mid (b, a) \in \BNRs{R}}\]
+    We write just $C(a)$ instead of $C_{\BN{B}}(a)$, when it is unambiguous.
+\item[$\BNUFs{F}$] is a total mapping from $V$ to a set of
+    \emph{update functions}. An update function for variable $v \in V$ is
+    denoted as $\BNUFs{F}_v$ and takes a value of every variable in $v$'s
+    context as an input and outputs an \emph{update value} for the variable
+    $v$.
+    \[
+        \BNUFs{F}_v \in \set*{F \mid F: \set{0, 1}^{C(a)} \to \set{0, 1}}
+    \]
+\end{description}
+\end{ldefinition}
+
+\begin{lexample} \label{example:BN}
+In this example we illustrate the previous definition for a simple 3-variable
+boolean network depicted in figure~\ref{fig:bn}.
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[node distance={4.5em}, thick, main/.style = {draw, circle}] 
+    \node[main] (a)                        {$a$}; 
+    \node[main] (b) [below left of=a]       {$b$};
+    \node[main] (c) [below right of=a]        {$c$};
+
+    \draw[red, -|] (a) to [out=120, in=60, looseness=3] (a);
+    \draw[relative, green, ->] (a) to [out=15, in=165, looseness=1] (c);
+
+    \draw[green, ->] (b) -- (a);
+    \draw[green, ->] (b) to [out=195, in=255, looseness=3] (b);
+    \draw[relative, red, -|] (b) to [out=15, in=165, looseness=1] (c);
+
+    \draw[relative, green, ->] (c) to [out=15, in=165, looseness=1] (a);
+    \draw[relative, green, ->] (c) to [out=15, in=165, looseness=1] (b);
+\end{tikzpicture}
+\caption[An example of a BN]{An example of a regulatory graph of a boolean
+network. The directed graph is given by the variables and the regulations of
+the BN. Here, the edges are moreover colored according to the effect in the
+corresponding update function.\label{fig:bn}}
+\end{figure}
+
+Clearly, the network contains three boolean variables $\set{a, b, c}$ and
+regulations between them:
+\[
+    \BNRs{R} = \set{(a, a), (a, c), (b, a), (b, b), (b, c), (c, a), (c, b)}
+\]
+
+We can define the update functions in multiple ways to be still consistent with
+the figure~\ref{fig:bn}. By \enquote{consistent} we mean that for each
+regulation $(x, y)$ colored green (red), for every possible valuation of the
+other regulators of $y$, changing $x$'s value from 0 to 1 does not change the
+value of $\BNUFs{F}_y$ from 1 to 0 (0 to 1, resp.). One of the consistent
+definitions is:
+\begin{IEEEeqnarray*}{rCl}
+    \BNUFs{F}_a(a, b, c) & = & \lnot a \land b \land c\\
+    \BNUFs{F}_b(   b, c) & = & b \land \lnot c\\
+    \BNUFs{F}_c(a, b   ) & = & a \lor \lnot b
+\end{IEEEeqnarray*}
+
+To be more precise in terms of the previous definition, we should write
+$\BNUFs{F}_a(\nu) = \lnot \nu(a) \land \nu(b) \land \nu(c)$ instead of
+$\BNUFs{F}_a(a, b, c)$ because an update function takes a mapping $\nu: C(a) \to
+\{0,1\}$ as a parameter and not the variables $C(a)$ directly. We omit this one
+level of indirection for the sake of fluency when reading.
+
+Update functions can also be defined by truth tables:
+\[
+\begin{array}{ccc|c}
+    a & b & c & \BNUFs{F}_a\\
+    \hline
+    1 & 1 & 1 & 0\\
+    1 & 1 & 0 & 0\\
+    1 & 0 & 1 & 0\\
+    1 & 0 & 0 & 0\\
+    0 & 1 & 1 & 1\\
+    0 & 1 & 0 & 0\\
+    0 & 0 & 1 & 0\\
+    0 & 0 & 0 & 0\\
+\end{array}
+\qquad
+\begin{array}{cc|c}
+    b & c & \BNUFs{F}_b\\
+    \hline
+    1 & 1 & 0\\
+    1 & 0 & 1\\
+    0 & 1 & 0\\
+    0 & 0 & 0\\
+\end{array}
+\qquad
+\begin{array}{cc|c}
+    a & b & \BNUFs{F}_c\\
+    \hline
+    1 & 1 & 1\\
+    1 & 0 & 1\\
+    0 & 1 & 0\\
+    0 & 0 & 1\\
+\end{array}
+\]
+\end{lexample}
+
+A BN describes the system structure: main components, and their interactions.
+Then, the system evolves and changes its \emph{state} over time according to the
+interaction rules -- update functions.
+
+\begin{ldefinition}
+A \emph{state} of a boolean network $\BN{B}$ with variables $V$ is a
+(total) valuation $\nu : V \to \set{0, 1}$.
+\end{ldefinition}
+
+\subsection{Dynamic behavior of boolean networks}
+
+A BN update functions together with \emph{semantics} specifies possible
+transitions between states. BN semantics is an \emph{updating policy} for
+applying the update functions to a BN's state. There is a wide space for such
+policies: the two most common, \emph{synchronous} and \emph{asynchronous}, but
+others more sophisticated, synchronous block-sequential, stochastic
+asynchronous, and more~\cite{colomoto}. In synchronous semantics, all the
+update functions are applied at once. In the asynchronous, only one update
+function is used at a time. It was thought that the latter represents
+biological systems better, as the components in a living system usually have
+concurrent dynamics. Conversely, synchronous updating policy leads to fewer
+transitions, and some discussion revealed that it might be more appropriate for
+robustness analysis~\cite{concepts_bn}. We made a choice for synchronous
+semantics mainly because of the stimulating paper of T.~Parmer~et~al., where
+the authors aimed for that policy the most~\cite{infl_max_BN}.
+
+\begin{lexample}
+Continuing with the BN from example~\ref{example:BN}, we compare the two most
+frequent semantics regarding state $\state{110}$. We write triplet
+$\state{110}$ instead of more complex, formal valuation $\set{(a, \state{1}),
+(b, \state{1}), (c, \state{0})}$. Asynchronous semantics have two possible
+consequent states: $\state{010}$ (after application of $\BNUFs{F}_a$) and
+$\state{111}$ ($\BNUFs{F}_c$).  Synchronous semantics have only one:
+$\state{011}$.
+\end{lexample}
+
+After intuitively describing what semantics is, we provide a definition of
+synchronous semantics here:
+\begin{ldefinition}
+A boolean network $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ can transition from a
+state $\nu_{\text{fr}}$ to a state $\nu_{\text{to}}$ in \emph{synchronous
+semantics} if and only if:
+\[
+    \forall_{v \in V} : \BNUFs{F}_v(\nu_{\text{fr}}\restriction C(v)) =
+    \nu_{\text{to}}(v)
+\]
+Where $\nu\restriction C(v)$ is a restriction of $\nu$ to the domain $C(v)$.
+
+We also define a relation $\BNt{B}$ of feasible transitions, consisting of
+all the pairs $(\nu_{\text{fr}}, \nu_{\text{to}})$ such that $\BN{B}$
+can change state from $\nu_{\text{fr}}$ to $\nu_{\text{to}}$. We use the notions
+$(\nu_{\text{fr}}, \nu_{\text{to}}) \in \BNt{B}$ and
+$\nu_{\text{fr}} \BNt{B} \nu_{\text{to}}$ interchangeably.
+
+A transitive closure of $\BNt{B}$ is denoted $\BNt{B}^* = \BNtc{B}$.
+\end{ldefinition}
+
+The dynamics of a boolean network can be interpreted as a directed
+graph\footnote{\url{https://en.wikipedia.org/wiki/Directed_graph}}, where the
+vertices correspond to the states of a BN, and the arcs correspond to the
+feasible transitions for a given semantics. The number of vertices is
+exponential ($2^{|V|}$) with respect to the number of BN variables because each
+variable may (independently) take on two values from~$\set{0, 1}$. There is
+always just one outgoing arc from any node for synchronous semantics. From now
+on, we consider only synchronous update policy, except we mention the semantics
+explicitly.
+
+\begin{ldefinition}
+A \emph{state transition graph} (STG) of a BN $\BN{B} = (V, \BNRs{R},
+\BNUFs{F})$ is a directed graph $\stg(\BN{B}) = (\mathcal{S}, E)$ with
+vertices $\mathcal{S} = \set{0, 1}^V$ and edges $E =\,
+\BNt{B} \, \subseteq \mathcal{S}^2$.
+\end{ldefinition}
+
+\begin{lexample}
+We illustrate the concept of a state transition graph on the BN from
+example~\ref{example:BN}. The corresponding STG is depicted in
+figure~\ref{fig:STG}. It contains $2^{|V|} = 2^3 = 8$ vertices and the same
+number of arcs.
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[node distance={3.5em}, thick, main/.style = {draw, circle}]
+    \node[main] (111) {$\state{111}$};
+    \node[main] (000) [left of=111] {$\state{000}$};
+    \node[main] (100) [right of=111] {$\state{100}$};
+    \node[main] (001) [below of=100] {$\state{001}$};
+    \node[main] (011) [above of=100] {$\state{011}$};
+    \node[main] (110) [above of=011] {$\state{110}$};
+    \node[main] (101) [right of=100] {$\state{101}$};
+
+    \node[main] (010) [right of=001, xshift=3.5em] {$\state{010}$};
+
+    \draw[->] (111) -- (001);
+    \draw[->] (011) -- (100);
+    \draw[->] (110) -- (011);
+    \draw[->] (001) to [out=240, in=300, looseness=3] (001);
+    \draw[->] (010) to [out=240, in=300, looseness=3] (010);
+    \draw[->] (000) -- (001);
+    \draw[->] (101) -- (001);
+    \draw[->] (100) -- (001);
+\end{tikzpicture}
+\caption[An example of a STG]{An example of a state transition graph.}
+\label{fig:STG}
+\end{figure}
+\end{lexample}
+
+In the above example, we can see an interesting feature. The STG contains two
+states the system cannot escape from. Component $a$ is absent in both, and
+either $b$ or $c$ is active. Moreover, all but one state leads to the final
+state $\state{001}$ in the long term. We call them \emph{attractors}, with the
+latter having a larger \emph{basin}.
+
+\begin{ldefinition}
+An \emph{attractor} of a boolean network $\BN{B}$ is a maximal (finite) set
+of states $\attr{A} = \set{\nu_i}_{i=1}^k$ such that:
+\[ \forall_{\nu_1, \nu_2 \in \attr{A}} : \nu_1 \BNtc{B} \nu_2 \]
+
+A \emph{basin} of attractor $\attr{A}$ is a (finite) set of all states $\nu$
+such that:
+\[ \exists_{\nu^{'} \in \attr{A}} : \nu \BNtc{B} \nu^{'} \]
+We slightly abuse the notation and write just $\nu \BNtc{B} \attr{A}$.
+\end{ldefinition}
+
+\begin{lexample}
+For the STG depicted in figure~\ref{fig:STG}, the basin of attractor
+$\set{\state{010}}$ is just $\set{\state{010}}$ and the basin of attractor
+$\set{\state{001}}$ is a set of all the other vertices.
+\end{lexample}
+
+
+Attractors are categorized based on their size and transitions within. The
+simplest case is an attractor containing just one node. It is called a
+\emph{fixed-point} attractor. In any other case, the attractor is
+\emph{cyclic}. Intuitively, the system cyclically transitions among the states
+in a fixed order.
+
+In a synchronous model of the mammalian cell cycle from 2004~\cite{mammalian},
+the analysis revealed two attractors: a fixed-point one with a basin of
+attraction corresponding to a lack of growth factors, leading to the phase G0
+or cell quiescence, and the second one cyclic attractor qualitatively matching
+the data and simulation of Novak and Tyson~\cite{novak}. But the synchronous
+approach prohibits further refined analysis of the transitions in the cyclic
+attractor.
+
+For asynchronous update policy, the categorization is more complex, rising from the fact that the STG contains more edges. Still, the fixed-point attractors coincide with the ones for synchronous policy~\cite{attractors}.
+
+Although T.~Parmer~et~al.~\cite{infl_max_BN} have tried various update
+policies, the synchronous one was used to obtain the results presented in their
+article that we build on.  It seems to be the most straightforward as well, in
+connection to the approximation algorithm they presented. We elaborate more on
+this in the next chapter. The article also states that their method, as it is
+currently designed, is not usable for cyclic attractors:
+\blockquote[T.~Parmer~et~al.~\cite{infl_max_BN}]{Finally, as it is currently
+formulated, our method is useful for the study of fixed points only but not
+of limit cycles. The method can be generalized to the study of these more
+complicated attractors, but only via a non-trivial generalization of our
+currently proposed metric of dynamical influence.}
+
+To put it together:
+\begin{itemize}
+    \item Synchronous semantics leads to simpler STG for analysis.
+    \item There is evidence that fixed-point attractors have a more apparent
+        analogy to the biological phenotype.
+    \item Fixed-point attractors are the same for synchronous and asynchronous
+        semantics.
+    \item The stimulating article for our thesis works with fixed-points in
+        synchronous update policy.
+\end{itemize}
+Thus we have chosen to focus only on fixed-point attractors and synchronous
+semantics.
+
+\subsection{Control of boolean networks}
+
+To ensure that a boolean network reaches a specific, wanted attractor, one has
+to interfere with the system if its state transition graph contains multiple
+attractors. Such interference is called \emph{perturbation} or \emph{control}.
+Two kinds of perturbations exist: state perturbations and update function
+perturbations. In the former case, one changes the system's state or restricts
+its state space. In the latter case, the STG edges are manipulated by adjusting
+the update functions. Usually, it is much less realistic to change a biological
+process than to change a system's state, e.g., by adding some
+substance~\cite{zanudo}. Therefore we speak only about state perturbations.
+
+State perturbations can be categorized in the following
+way~\cite{smijakova_thesis}:
+\begin{description}
+    \item[One-step] Applied only once, then the system evolves freely due to
+        the update policy and functions.
+    \item[Temporary] Applied in multiple consequent time steps.
+    \item[Permanent] The state space is restricted forever. For example, a
+        chosen component cannot be active at all.
+\end{description}
+
+\begin{lexample}
+When the system in Figure~\ref{fig:STG} settles down in state $\state{010}$
+but we would like to have it in the other attractor, $\state{001}$, a
+simple one-step control is to change component $a$ to a high state.
+Afterward, the system progressively moves from state $\state{110}$ to
+$\state{001}$ without any other perturbation because $\state{110}$ lies
+in the basin of attraction for $\state{001}$.
+\end{lexample}
+
+In our thesis, we are interested in permanent control. It is the most intrusive
+and unrealistic one, as it requires forever adding or extracting the
+corresponding substance. But, again, the choice has been made regarding the
+article~\cite{infl_max_BN} we build on, where the authors work with permanent
+perturbations. The control is given by a \emph{driver-set} that drives the
+system toward a specific attractor.
+
+\begin{ldefinition}
+A \emph{driver-set} $\dset{D}$ for a BN $\BN{B}$ with variables $V$ is a
+restriction of (total) valuation $V \to \set{0, 1}$. After application of
+$\dset{D}$, the state transition graph $\stg(B)$ is transformed subsequently:
+\begin{itemize}
+    \item Its vertices are reduced to $V' = \set{\nu \mid \dset{D} \text{ is
+        a restriction of } \nu}$. We remind that a function $f$ is a
+        restriction of $g$, when:
+        \[
+        \dom{f} \subseteq \dom{g} \land \forall_{x \in \dom{f}} : f(x) = g(x)
+        \]
+    \item The edges starting not from $V'$ are removed.
+        Each remaining edge $(\nu_{\text{fr}}, \nu_{\text{to}})$ is
+        substituted by an edge $(\nu_{\text{fr}}, \nu_{\text{to}}')$,
+        such that
+        \[
+            \nu_{\text{to}}'(v) =
+            \begin{cases}
+                \dset{D}(v) & \text{if } v \in \dom{\dset{D}},\\
+                \nu_{\text{to}}(v) & \text{else}.
+            \end{cases}
+        \]
+        for all $v \in V$. ($\dom{f}$ denotes a domain of a function $f$.)
+\end{itemize}
+
+$\dset{D}$ can be interpreted also as a set of $\BN{B}$'s variable
+\enquote{fixes}
+\[
+    \set*{(v, s) \mid v \in V \land s \in \set{0, 1}}.
+\]
+\end{ldefinition}
+
+\begin{lexample}
+Possible driver-sets for the BN defined in Example~\ref{example:BN} are:
+$\dset{D_1} = \set{(b, 1)}$, $\dset{D_2} = \set{(b, 1), (c, 0)}$,
+or $\dset{D_3} = \set{(b, 0)}$. We depict the related transformations of the STG
+in Figure~\ref{fig:STG_transformed} (see the original STG in
+Figure~\ref{fig:STG}). $\dset{D_1}$ is not enough to drive the system to
+the attractor $\state{010}$ from any state. Adding $(c, 0)$ results in
+$\dset{D_2}$ and transforms the $\stg{B}$ to have only one attractor. On the
+other side, a driver set $\dset{D_3}$ of size 1 is sufficient to drive the
+system toward the other attractor $\state{001}$.
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}{0.3\textwidth}
+    \centering
+    \begin{tikzpicture}[node distance={3.5em}, thick, main/.style = {draw,
+                        circle}]
+        \node[main] (111) {$\state{111}$};
+        \node[main] (011) [below of=111] {$\state{011}$};
+        \node[main] (110) [right of=011] {$\state{110}$};
+
+        \node[main] (010) [left of=011] {$\state{010}$};
+
+        \draw[->] (111) -- (011);
+        \draw[->] (011) -- (110);
+        \draw[->] (110) -- (011);
+        \draw[->] (010) to [out=240, in=300, looseness=3] (010);
+    \end{tikzpicture}
+    \caption{$\set{(b, 1)}$}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.3\textwidth}
+    \centering
+    \begin{tikzpicture}[node distance={3.5em}, thick, main/.style = {draw,
+                        circle}]
+        \node[main] (110) {$\state{110}$};
+
+        \node[main] (010) [below of=110] {$\state{010}$};
+
+        \draw[->] (110) -- (010);
+        \draw[->] (010) to [out=240, in=300, looseness=3] (010);
+    \end{tikzpicture}
+    \caption{$\set{(b, 1), (c, 0)}$}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.3\textwidth}
+    \centering
+    \begin{tikzpicture}[node distance={3.5em}, thick, main/.style = {draw,
+                        circle}]
+        \node[main] (000) {$\state{000}$};
+        \node[main] (100) [right of=000] {$\state{100}$};
+        \node[main] (001) [below of=100] {$\state{001}$};
+        \node[main] (101) [right of=100] {$\state{101}$};
+
+        \draw[->] (001) to [out=240, in=300, looseness=3] (001);
+        \draw[->] (000) -- (001);
+        \draw[->] (101) -- (001);
+        \draw[->] (100) -- (001);
+    \end{tikzpicture}
+    \caption{$\set{(b, 0)}$}
+\end{subfigure}
+\caption{Resulting STGs after a control of given driver-sets.}
+\label{fig:STG_transformed}
+\end{figure}
+\end{lexample}
+
 
 % TODO is this neccessary?
 %\makeatletter\thesis@blocks@clear\makeatother
