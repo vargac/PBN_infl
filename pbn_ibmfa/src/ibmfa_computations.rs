@@ -17,6 +17,7 @@ pub fn ibmfa_entropy(
     iterations: usize,
     early_stop: bool,
     explicit_pupdate_funs_opt: Option<&[PUpdateFunExplicit]>,
+    mut step_callback_opt: Option<impl FnMut(&[f32]) -> ()>,
     verbose: bool,
 ) -> (f32, Vec<f32>, usize) {
     let mut probs = sync_graph.as_network().variables()
@@ -47,6 +48,9 @@ pub fn ibmfa_entropy(
         if verbose {
             println!("{:?}", probs);
         }
+        if let Some(ref mut step_callback) = step_callback_opt {
+            step_callback(&probs);
+        }
         ent = entropy(&probs);
         if ent == 0.0 && last_ent == 0.0 && early_stop {
             return (ent, probs, i - 1);
@@ -76,7 +80,7 @@ pub fn minimize_entropy<'a>(
             pbn_fix.insert(unit_fix);
             let (ent, probs, index) = ibmfa_entropy(
                 &sync_graph, &pbn_fix, iterations, true,
-                explicit_pupdate_funs_opt, false);
+                explicit_pupdate_funs_opt, None::<fn(&[f32])>, false);
             pbn_fix.remove(unit_fix);
 
             if verbose {
