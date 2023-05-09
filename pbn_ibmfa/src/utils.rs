@@ -117,3 +117,30 @@ pub fn print_update_functions(sync_graph: &SymbSyncGraph) {
         println!();
     }
 }
+
+pub fn variations_with_replacement<T: Default + Clone>(
+    values: &[T],
+    num: usize
+) -> Vec<Vec<T>> {
+    let mut result = Vec::new();
+    let mut first = vec![T::default(); num];
+    variations_with_replacement_r(values, &mut first, 0, &mut result);
+    result
+}
+
+fn variations_with_replacement_r<T: Default + Clone>(
+    values: &[T],
+    current: &mut Vec<T>,
+    index: usize,
+    result: &mut Vec<Vec<T>>
+) {
+    if index == current.len() {
+        result.push(current.to_vec());
+        return;
+    }
+
+    for value in values {
+        current[index] = value.clone();
+        variations_with_replacement_r(values, current, index + 1, result);
+    }
+}

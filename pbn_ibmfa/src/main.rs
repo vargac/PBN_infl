@@ -4,12 +4,13 @@ use biodivine_lib_bdd::{BddVariable, BddVariableSet};
 use biodivine_lib_param_bn::BooleanNetwork;
 use biodivine_lib_param_bn::symbolic_async_graph::
     {SymbolicContext, GraphColors};
+use biodivine_lib_param_bn::biodivine_std::traits::Set;
 
 use json::{JsonValue, object, array};
 use clap::{Parser, Subcommand, Args};
 
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
-use pbn_ibmfa::utils::add_self_regulations;
+use pbn_ibmfa::utils::{add_self_regulations, variations_with_replacement};
 use pbn_ibmfa::ibmfa_computations::ibmfa_entropy;
 use pbn_ibmfa::driver_set::{find_driver_set, colors_partition, PBNFix,
     fixes::DriverSet};
@@ -43,7 +44,10 @@ struct SimulationArgs {
     path: std::path::PathBuf,
     /// The length of the simulation
     #[arg(short, long, default_value_t = 10)]
-    t: u8,
+    time_steps: u8,
+    /// Compute the average dynamics by brute-force instead of IBMFA
+    #[arg(short, long)]
+    brute_force: bool,
     /// Pretty json output
     #[arg(short, long)]
     pretty_json: bool,
@@ -192,23 +196,75 @@ fn main_simulation(args: &SimulationArgs) {
         json_data["simulation"][bdd_var_set.name_of(*bdd_var)] = array![0.5];
     }
 
-    let add_probs = |probs: &[f32]| {
+    let mut all_probs: Vec<Vec<f32>>;
+
+    if args.brute_force {
+        let vars_num = context.num_state_variables();
+
+        all_probs = vec![vec![0.0; vars_num]; args.time_steps as usize];
+
+        let state_space = variations_with_replacement(&[0.0, 1.0], vars_num);
+
+        let mut remaining_colors = sync_graph.unit_colors().clone();
+        while !remaining_colors.is_empty() {
+            let color = remaining_colors.pick_singleton();
+            remaining_colors = remaining_colors.minus(&color);
+
+            for state in &state_space {
+                let mut iteration_probs = Vec::new();
+                let mut add_probs = |probs: &[f32]| {
+                    iteration_probs.push(probs.to_vec());
+                };
+                ibmfa_entropy(
+                    &sync_graph,
+                    &PBNFix::new(sync_graph.unit_colors().into_bdd()),
+                    args.time_steps as usize,
+                    false,
+                    None,
+                    Some(&mut add_probs),
+                    Some(state.clone()),
+                    false
+                );
+                for it in 0..args.time_steps as usize {
+                    for i in 0..vars_num {
+                        all_probs[it][i] += iteration_probs[it][i];
+                    }
+                }
+            }
+        }
+
+        for it in 0..args.time_steps as usize {
+            for i in 0..vars_num {
+                all_probs[it][i] /= state_space.len() as f32
+                    * sync_graph.unit_colors().approx_cardinality() as f32;
+            }
+        }
+
+    } else {
+        all_probs = Vec::new();
+        let add_probs = |probs: &[f32]| {
+            all_probs.push(probs.to_vec());
+        };
+
+        ibmfa_entropy(
+            &sync_graph,
+            &PBNFix::new(sync_graph.unit_colors().into_bdd()),
+            args.time_steps as usize,
+            false,
+            None,
+            Some(add_probs),
+            None,
+            false
+        );
+    }
+
+    for iteration in all_probs.iter() {
         for (bdd_var, prob) in
-                context.state_variables().iter().zip(probs.iter()) {
+                context.state_variables().iter().zip(iteration.iter()) {
             json_data["simulation"][bdd_var_set.name_of(*bdd_var)]
                 .push(*prob).unwrap();
         }
-    };
-
-    ibmfa_entropy(
-        &sync_graph,
-        &PBNFix::new(sync_graph.unit_colors().into_bdd()),
-        args.t as usize,
-        false,
-        None,
-        Some(add_probs),
-        false
-    );
+    }
 
     print_json(json_data, args.pretty_json);
 }

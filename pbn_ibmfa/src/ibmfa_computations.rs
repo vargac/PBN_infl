@@ -18,16 +18,20 @@ pub fn ibmfa_entropy(
     early_stop: bool,
     explicit_pupdate_funs_opt: Option<&[PUpdateFunExplicit]>,
     mut step_callback_opt: Option<impl FnMut(&[f32]) -> ()>,
+    initial: Option<Vec<f32>>,
     verbose: bool,
 ) -> (f32, Vec<f32>, usize) {
-    let mut probs = sync_graph.as_network().variables()
-        .map(|var_id|
-            if let Some(fixed_prob) = pbn_fix.get_vertex(var_id) {
-                if fixed_prob { 1.0 } else { 0.0 }
-            } else {
-                0.5
-            })
-        .collect::<Vec<_>>();
+    let mut probs = match initial {
+        Some(initial) => initial,
+        None => sync_graph.as_network().variables()
+            .map(|var_id|
+                if let Some(fixed_prob) = pbn_fix.get_vertex(var_id) {
+                    if fixed_prob { 1.0 } else { 0.0 }
+                } else {
+                    0.5
+                })
+            .collect::<Vec<_>>(),
+    };
 
     // In the case of finding color-fixes (not just vertex-fixes), now, it is
     // the time to compute explicit parametrizations of update functions,
@@ -80,7 +84,7 @@ pub fn minimize_entropy<'a>(
             pbn_fix.insert(unit_fix);
             let (ent, probs, index) = ibmfa_entropy(
                 &sync_graph, &pbn_fix, iterations, true,
-                explicit_pupdate_funs_opt, None::<fn(&[f32])>, false);
+                explicit_pupdate_funs_opt, None::<fn(&[f32])>, None, false);
             pbn_fix.remove(unit_fix);
 
             if verbose {
