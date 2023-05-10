@@ -12,8 +12,8 @@ use clap::{Parser, Subcommand, Args};
 use pbn_ibmfa::symbolic_sync_graph::SymbSyncGraph;
 use pbn_ibmfa::utils::{add_self_regulations, variations_with_replacement};
 use pbn_ibmfa::ibmfa_computations::ibmfa_entropy;
-use pbn_ibmfa::driver_set::{find_driver_set, colors_partition, PBNFix,
-    fixes::DriverSet};
+use pbn_ibmfa::driver_set::{find_driver_set, colors_partition, PBNFix, UnitFix,
+    fixes::{DriverSet, UnitVertexFix}};
 
 
 
@@ -51,6 +51,9 @@ struct SimulationArgs {
     /// Pretty json output
     #[arg(short, long)]
     pretty_json: bool,
+    /// Fix variable. Syntax: "{var_name}={value}". Value is "0" or "1".
+    #[arg(short, long)]
+    fix: Vec<String>,
 }
 
 
@@ -181,19 +184,60 @@ fn main_driver(args: &DriverArgs) {
     print_json(json_data, args.pretty_json);
 }
 
+fn parse_fixes(fixes: &[String], model: &BooleanNetwork)
+-> Result<Vec<UnitVertexFix>, String> {
+    fixes.iter()
+        .map(|fix| {
+            let parts: Vec<&str> = fix.split('=').collect();
+            if parts.len() != 2 {
+                return Err(format!("Invalid fix '{fix}'. \
+                    Expected format '{{name}}={{value}}'."));
+            }
+            let value =
+                if parts[1] == "0" { false }
+                else if parts[1] == "1" { true }
+                else { return Err(format!("Invalid fix '{fix}'. \
+                    Expected value '0'/'1', found '{}'.", parts[1]))
+                };
+
+            if let Some(var_id) = model.as_graph().find_variable(parts[0]) {
+                Ok(UnitVertexFix { var_id, value })
+            } else {
+                Err(format!("Invalid fix '{fix}'. \
+                    The model does not contain variable '{}'.", parts[0]))
+            }
+        })
+        .collect()
+}
+
 fn main_simulation(args: &SimulationArgs) {
     let model = load_model(&args.path);
+    let user_fixes = parse_fixes(&args.fix, &model).unwrap_or_else(|err| {
+        eprintln!("Err: {err}");
+        process::exit(1);
+    });
     let sync_graph = SymbSyncGraph::new(model);
     let context = sync_graph.symbolic_context();
     let bdd_var_set = context.bdd_variable_set();
+    let mut pbn_fix = PBNFix::new(sync_graph.unit_colors().into_bdd());
+    for unit_vertex_fix in user_fixes {
+        pbn_fix.insert(&UnitFix::Vertex(unit_vertex_fix));
+    }
+    let fixes = pbn_fix.get_driver_set();
 
     let mut json_data = json::JsonValue::new_object();
 
     add_state_variables(context, &mut json_data);
 
     json_data["simulation"] = json::JsonValue::new_object();
-    for bdd_var in context.state_variables().iter() {
-        json_data["simulation"][bdd_var_set.name_of(*bdd_var)] = array![0.5];
+    for var_id in sync_graph.as_network().variables() {
+        let name = sync_graph.as_network().get_variable_name(var_id);
+        json_data["simulation"][name] =
+            if let Some(value) = fixes.get(&var_id) {
+                array![if *value { 1.0 } else { 0.0 }]
+            } else {
+                array![0.5]
+            };
     }
 
     let mut all_probs: Vec<Vec<f32>>;
@@ -203,7 +247,19 @@ fn main_simulation(args: &SimulationArgs) {
 
         all_probs = vec![vec![0.0; vars_num]; args.time_steps as usize];
 
-        let state_space = variations_with_replacement(&[0.0, 1.0], vars_num);
+        let state_space =
+            variations_with_replacement(&[0.0, 1.0], vars_num - fixes.len())
+            .into_iter()
+            .map(|mut variation| {
+                let variables = sync_graph.as_network().variables();
+                for (index, var_id) in variables.enumerate() {
+                    if let Some(value) = fixes.get(&var_id) {
+                        variation.insert(index, if *value { 1.0 } else { 0.0 });
+                    }
+                }
+                variation
+            })
+            .collect::<Vec<_>>();
 
         let mut remaining_colors = sync_graph.unit_colors().clone();
         while !remaining_colors.is_empty() {
@@ -217,7 +273,7 @@ fn main_simulation(args: &SimulationArgs) {
                 };
                 ibmfa_entropy(
                     &sync_graph,
-                    &PBNFix::new(sync_graph.unit_colors().into_bdd()),
+                    &pbn_fix,
                     args.time_steps as usize,
                     false,
                     None,
@@ -248,7 +304,7 @@ fn main_simulation(args: &SimulationArgs) {
 
         ibmfa_entropy(
             &sync_graph,
-            &PBNFix::new(sync_graph.unit_colors().into_bdd()),
+            &pbn_fix,
             args.time_steps as usize,
             false,
             None,
