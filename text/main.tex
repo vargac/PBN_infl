@@ -45,6 +45,13 @@
 \usepackage{tikz}
 \usetikzlibrary{shapes, positioning}
 \usepackage{url}      %% Hyperlinks
+
+\usepackage{algorithm2e}
+\RestyleAlgo{ruled}
+\SetKwComment{Comment}{/* }{ */}
+\SetKw{Break}{break}
+\LinesNumbered
+
 \usepackage{listings} %% Source code highlighting
 \lstset{
   basicstyle      = \ttfamily,
@@ -59,6 +66,7 @@
 \usepackage{floatrow} %% Putting captions above tables
 \floatsetup[table]{capposition=top}
 \usepackage[babel]{csquotes} %% Context-sensitive quotation marks
+\graphicspath{ {./images/} }
 
 
 \theoremstyle{definition}
@@ -94,6 +102,7 @@
 \NewDocumentCommand{\dom}{m}{\mathcal{D}(#1)} % domain
 
 \DeclarePairedDelimiter{\set}{\{}{\}}
+\DeclareMathOperator*{\argmin}{arg\,min}
 
 
 
@@ -665,9 +674,9 @@ an interaction with this (averaged) \enquote{mean-field}. These methods may
 give helpful insight into the system's overall behavior, neglecting local
 effects\footnote{A good explanatory (although not practical) example is a
     mean-field approximation of \emph{cellular automata}~\cite{mean_field_ca}.
-    The \enquote{mean-field} is just the portion of cells in state 1. Then,
+    The \enquote{mean-field} is just the portion of cells in state~1. Then,
     each cell is supposed to interact with its neighbors, but effectively, only
-    a probability of a neighbor being in state 1 is considered (and it is equal
+    a probability of a neighbor being in state~1 is considered (and it is equal
     to the \enquote{mean-field}). The result is a time series of the
     mean-field likelihood.}.
 
@@ -723,28 +732,233 @@ method neglects the dynamic correlations between variables, making the
 computation tractable. Here, we shortly describe the method.
 
 \begin{ldefinition}
-We describe the average dynamics of a BN $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ by
-a Markov process $\set*{\sigma}_{t = 0}^T$, where $\sigma(t) =
-(\sigma_{v_1}(t), \sigma_{v_2}(t), \ldots, \sigma_{v_n}(t))$ and $\set{v_1,
-v_2, \ldots, v_n} = V$. A probability the boolean variable $v$ is in the state
-1 at time step $t$ is denoted $\sigma_{v}(t)$. We call $\sigma(t)$ a
+We describe the \emph{average dynamics} of a BN $\BN{B} = (V, \BNRs{R},
+\BNUFs{F})$ by a Markov process $\set*{X}_{t = 0}^T$, where $X(t) =
+(X_{v_1}(t), X_{v_2}(t), \ldots, X_{v_n}(t))$ and $\set{v_1, v_2, \ldots,
+v_n} = V$. The sample space of a random variable $X_v$ is $\set{0, 1}$. A
+probability that the boolean variable $v$ is in the state~1 at time step
+$t$ is denoted $\sigma_{v}(t) = P(X_v(t) = 1)$. We call $\sigma(t)$ a
 \enquote{\emph{probabilistic state}} or just a \enquote{state} or
-\enquote{configuration}, when the distinction is clear from the context. So,
-$\sigma(0)$ denotes an initial configuration.
+\enquote{configuration}, when the distinction from the original notion of a
+BN's state is clear from the context.  So, $\sigma(0)$ denotes an initial
+configuration. If not specified else, it holds that $\forall_{v \in V} :
+\sigma_v(0) = 0.5$.
 
 The dynamics is approximated in the following way:
-\[
+\begin{equation} \label{eq:ibmfa}
     \sigma_v(t + 1)
     = \sum_{\substack{\nu \in \set{0, 1}^V \\
             \BNUFs{F}_v(\nu\restriction C(v)) = 1}} 
         \prod_{u \in V}
             \left[ \sigma_u(t) \right]^{\nu(u)}
             \cdot \left[ 1 - \sigma_u(t) \right]^{1 - \nu(u)}
-\]
+\end{equation}
 \end{ldefinition}
 
-%\subsection{Control of BNs revisited as influence maximization}
+Now, we assess the time complexity of computing the average dynamics exactly
+as opposed to the defined IBMFA:
+\begin{description}
+    \item[Exact simulation] There are $2^{|V|}$ initial configurations to
+        average over. One simulation from the starting configuration
+        takes $T$ time-steps.
+        Updating the BN's state by one time step during a simulation takes
+        in the worst case $|V|^2$ time (updating $V$ variables, each one may
+        depend on the previous states of all $V$ variables). Thus the time
+        complexity is bounded by $\mathcal{O}(2^{|V|} \cdot T)$.
+    \item[IBMFA] According to the work of T.~Parmer~\cite{infl_max_BN},
+        one step of the IBMFA simulation runs in time linear with respect to
+        $|V|$ (as every variable gets recomputed) and exponential with respect
+        to the average degree of nodes in the BN (because there is exponential
+        number of valuations for the context of a variable $v$ to sum over
+        in Equation~\ref{eq:ibmfa}). Having $T$ iterations of the simulation
+        approximation, the complexity is bound by $\mathcal{O}(|V| \cdot 2^k
+        \cdot T)$, where $k$ is the average node degree.
 
+        From the view of \emph{parametrized complexity}, we can call an
+        algorithm computing IBMFA to be \emph{fixed-parameter
+        tractable}\footnote{\url{
+        https://en.wikipedia.org/wiki/Parameterized_complexity\#FPT}\\Moreover,
+        the problem lies in the FPL (\emph{fixed-parameter linear}) class
+        because the network size occurs only as a linear term in the
+        derived time complexity.}.  The problem input set may be parametrized
+        by the average node degree $k$.  Indeed, in the mentioned article, term
+        $2^k$ is neglected, as $k$ is considered to be some low constant.
+        Networks in Cell Collective~\cite{cell_collective} repository they have
+        been working with are mostly sparse, having $k \approx 2$. This
+        practically leads to much better time complexity than the exact
+        simulation have: $\mathcal{O}(|V| \cdot T)$.
+\end{description}
+
+\begin{lexample}
+In the Figure~\ref{fig:simulations}, we illustrate a result of exact and IBMFA
+simulations of dynamics of the network from Example~\ref{example:BN}.
+The simulations run for 5 iterations. The probabilities in the exact
+simulation settled down already in the third iteration. In the IBMFA results,
+the probabilities got very close to 0 and 1, so the approximation effectively
+ignored the attractor $\state{010}$.
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}{0.85\textwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{example_brute_force.png}
+\end{subfigure}
+\begin{subfigure}{0.85\textwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{example_ibmfa.png}
+\end{subfigure}
+\caption{Simulation of exact (upper) and IBMFA (bottom) average dynamics
+    of BN~\ref{example:BN}}.
+\label{fig:simulations}
+\end{figure}
+\end{lexample}
+
+
+\subsection{Control of BNs as influence maximization using IBMFA}
+
+Here, we briefly illustrate the utilization of IBMFA~\cite{infl_max_BN} defined
+in the previous subsection for finding driver-sets. We adjust the original
+equation~\ref{eq:ibmfa} to incorporate driver-sets into the IBMFA simulation.
+\begin{ldefinition}
+Consider a driver-set $\dset{D}$. Then, the IBMFA simulation for BN
+$\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ is defined:
+\begin{align*}
+    \sigma_v^{\dset{D}}(0) &=
+    \begin{cases}
+        \dset{D}(v) & \text{if } v \in \dom{\dset{D}},\\
+        0.5 & \text{else}.
+    \end{cases} \\
+    \sigma_v^{\dset{D}}(t + 1) &=
+    \begin{cases}
+        \dset{D}(v) & \text{if } v \in \dom{\dset{D}},\\
+        \sigma_v(t + 1) \text{ as in~\ref{eq:ibmfa}} & \text{else}.
+    \end{cases}
+\end{align*}
+\end{ldefinition}
+
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}{0.2\textwidth}
+    \centering
+    \raisebox{7ex}{%
+    \begin{tikzpicture}[node distance={3.5em}, thick, main/.style = {draw,
+                        circle}]
+        \node[main] (111) {$\state{111}$};
+        \node[main] (011) [below of=111] {$\state{011}$};
+        \node[main] (110) [right of=011] {$\state{110}$};
+
+        \node[main] (010) [below of=011] {$\state{010}$};
+
+        \draw[->] (111) -- (011);
+        \draw[->] (011) -- (110);
+        \draw[->] (110) -- (011);
+        \draw[->] (010) to [out=240, in=300, looseness=3] (010);
+    \end{tikzpicture}}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.79\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{example_b1.png}
+\end{subfigure}
+\caption{A state transition graph and IBMFA simulation of boolean network from
+    example~\ref{example:BN} for driver-set $\dset{D} = \set{(b, 1)}$.  To
+    compare with the dynamics without a driver-set, look at the STG in
+    figure~\ref{fig:STG} and simulations in figure~\ref{fig:simulations}. With
+    $\dset{D}$, there are still two attractors, but the difference in the size
+    of their basins is lesser, so the approximation records both and does not
+    settle down to values 0 or 1 as in the situation without $\dset{D}$. The
+    probability plot shows that most attractor states have a value of 0 for $a$
+    and $c$ and that in the case when it is not so, $a$ and $c$ take on
+    opposite values (this is apparent from the alternating local peaks in the
+    graph). The corresponding STG supports the same evidence.}
+\label{fig:dset_ibmfa}
+\end{figure}
+
+A change in IBMFA simulation after setting the driver-set to
+$\dset{D} = \set{(b, 1)}$ is depicted in Figure~\ref{fig:dset_ibmfa}.
+The result is qualitatively different from the result shown in
+Figure~\ref{fig:simulations}, where the probabilities settled down to 0 or 1
+after five iterations of IBMFA. To characterize the settledness (or
+\emph{uncertainty}) numerically, T.~Parmer~et~al. used entropy.
+\begin{ldefinition}
+The \emph{uncertainty} of a network configuration in time $t$
+is defined as its normalized entropy:
+\begin{align*}
+    H(X(t)) & = \frac{1}{|V|} \sum_{v \in V} \sum_{s \in \set{0, 1}}
+        - P(X(t) = s) \log_2(P(X(t) = s)) \\
+        & = \frac{1}{|V|} \sum_{v \in V} \sum_{s \in \set{0, 1}}
+            - \sigma_v(t) \log_2\left(\sigma_v(t)\right)
+\end{align*}
+We write $H(X(t))$ and $H(\sigma(t))$ interchangeably. Note that it is just an
+approximation of true entropy, as the dependence between variables is
+neglected. The values $H(\sigma(t))$ range from 0 to 1, with a maximum for the
+highest uncertainty, e.i. $\forall_{v \in V} : \sigma_v(t) = 0.5$, and a minimum
+for any stable configuration $\forall_{v \in V} : \sigma_v(t) \in \set{0, 1}$.
+\end{ldefinition}
+
+After fixing a driver-set, the opposite of uncertainty, $1 - H$, is a measure
+of the influence of $\dset{D}$ on BN's average dynamics. The lower the
+uncertainty, the higher the driver-set's impact on the dynamics. T.~Parmer
+proposes a simple greedy search algorithm for finding a minimal driver-set so
+that the entropy settles to zero after sufficient iterations of IBMFA. The
+authors have experimentally determined the value $T = 10$. We use the same
+value in our work.
+
+The pseudocode is shown in Algorithm~\ref{algo:greedy}; a less formal
+description follows here. The set of fixes $F$ consistent with the driver set
+is prepared at the start. Then, in a loop, one fix is chosen in a greedy
+fashion for each iteration to minimize the entropy of the final configuration
+in IBMFA. After reaching zero entropy, the driver-set is done. Then, the next
+procedure follows -- reducing the driver-set -- to eliminate unnecessary fixes
+because the greedy search may build too big a driver-set.
+
+\begin{algorithm}[!ht]
+\caption{Greedy search for a driver-set}\label{algo:greedy}
+\SetAlgoLined
+\KwIn{The attractor $\nu \in \set{0, 1}^V$ to find driver-set for}
+\KwOut{Driver-set $\dset{D}$}
+$F \gets \nu$\;
+$\dset{D} \gets \emptyset$\;
+\While{$F \neq \emptyset$}{
+    $f \gets \argmin_{f \in F} H(\sigma^{\dset{D} \cup \set{f}}(T))$\;
+    $F \gets F \setminus \set{f}$\;
+    $\dset{D} \gets \dset{D} \cup \set{f}$\;
+    \If{$H(\sigma^{\dset{D}}(T)) = 0$}{
+        \Break
+    }
+}
+\While{$\dset{D} \neq \emptyset$}{
+    $f \gets \argmin_{f \in \dset{D}}
+        H(\sigma^{\dset{D} \setminus \set{f}}(T))$\;
+    \If{$H(\sigma^{\dset{D} \setminus \set{f}}(T)) > 0$}{
+        \Break
+    }
+    $\dset{D} \gets \dset{D} \setminus \set{ f }$\;
+}
+\end{algorithm}
+
+In addition to finding a driver-set for a specific attractor, the original
+article mentions an unconstrained version of the algorithm, where all possible
+fixes are considered. Thus the resulting driver-set leads to an attractor that
+is reached most easily. The only differences in the pseudocode are:
+\begin{itemize}
+    \item In the preparation of fixes $F$ on line 1.
+        \[
+            F \gets V \times \set{0, 1}
+        \]
+    \item In removing a chosen fix $f$ from $F$ on line 5. As $F$ contains
+        $(v, 0)$ and $(v, 1)$, both have to be removed, so the other one
+        cannot be chosen in a later iteration.
+        \[
+            F \gets F \setminus \set{(v, 0), (v, 1)}
+                \text{ where } (v, \cdot) = f
+        \]
+\end{itemize}
+The authors state the time complexity is cubic with respect to the number of
+network nodes $|V|$. It follows from the fact that the size of driver-set can,
+in general, grow as fast as $|V|$, so $\mathcal{O}(|V|)$ iterations of the main
+loop are run, in each, a minimum over $\mathcal{O}(|V|)$ variables is being
+found, and for each variable, the IBMFA simulation gets computed, which takes
+time linear to $|V|$.
 
 
 \section{Parametrized boolean networks}
