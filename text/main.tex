@@ -94,6 +94,12 @@
 \NewDocumentCommand{\state}{m}{\mathtt{#1}} % State (for triplets 101, ...)
 \NewDocumentCommand{\attr}{m}{\mathcal{#1}} % Attractor
 
+\NewDocumentCommand{\PBN}{m}{\mathfrak{#1}}
+\NewDocumentCommand{\PBNUFs}{m}{\mathfrak{#1}} %PBN Update Functions
+\NewDocumentCommand{\paronset}{m}{\mathfrak{#1}} % PARametrizatiON SET
+\NewDocumentCommand{\paron}{m}{\mathcal{#1}} % PARametrizatiON
+\NewDocumentCommand{\unf}{m}{#1_{\textrm{un}}} % UNinterpreted Function
+
 \NewDocumentCommand{\BNt}{m}{\to_{\BN{#1}}} % BN transition
 \NewDocumentCommand{\BNtc}{m}{\rightsquigarrow_{\BN{#1}}} % transitive closure
 
@@ -246,7 +252,7 @@ The definitions and notions in our work are adopted from those articles.
 The introduction chapter presented boolean networks in an informal, intuitive
 way. Now, we show a solid mathematical definition here.
 
-\begin{ldefinition}
+\begin{ldefinition} \label{def:BN}
 A \emph{boolean network} is a 3-tuple $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$,
 where:
 \begin{description}
@@ -264,7 +270,7 @@ where:
     context as an input and outputs an \emph{update value} for the variable
     $v$.
     \[
-        \BNUFs{F}_v \in \set*{F \mid F: \set{0, 1}^{C(a)} \to \set{0, 1}}
+        \BNUFs{F}_v \in \set*{F \mid F: \set{0, 1}^{C(v)} \to \set{0, 1}}
     \]
 \end{description}
 \end{ldefinition}
@@ -963,7 +969,142 @@ time linear to $|V|$.
 
 \section{Parametrized boolean networks}
 
+Estimating the BN's update functions from wet laboratory experiments is often
+challenging. It is feasible to generalize the BN concept to work with limited
+knowledge about the living system. For example, an inference of an inhibiting
+effect of two molecules on the occurrence of another component is insufficient.
+The boolean network formalism still requires choosing whether both molecules
+together have this effect ($\land$) or if any of them is enough ($\lor$).
+However, it would be nice to use at least the knowledge about inhibiting that
+we have. A generalization of a BN model to a \emph{parametrized boolean network}
+allows it.
+
+\begin{ldefinition}
+A \emph{parametrized boolean network} is a 5-tuple
+$\PBN{B} = (V, \BNRs{R}, F, \paronset{P}, \PBNUFs{F})$, where:
+\begin{description}
+    \item $V$ is a set of \emph{boolean variables}.
+    \item $\BNRs{R}$ is a set of \emph{regulations} as in ordinary BNs.
+    \item $F$ is a set of \emph{parameters}. A parameter is an uninterpreted
+        boolean function. To differentiate the notion from interpreted
+        functions, we denote a parameter by a label \enquote{un}: $\unf{f}^{n}$
+        for $n$-ary uninterpreted function. Thus a parameter consists only
+        of a name and assigned arity.
+    \item $\paronset{P}$ is a set of valid \emph{parametrizations} -- mappings
+        \[
+            F \to \set*{ f \mid f : \set{0,1}^n \to \set{0,1},
+                n \in \set{0, 1, 2, \ldots} }
+        \]
+        An image of a parameter $\unf{f}^{n} \in F$ in some parametrization
+        $\paron{P} \in \paronset{P}$ is an \emph{interpretation} of
+        $\unf{f}^{n}$:
+        \[
+            \paron{P}(\unf{f}^{n}): \set{0, 1}^n \to \set{0, 1}
+        \]
+    \item $\PBNUFs{F}$ is a set of \emph{parametrized update functions} $\set*{
+        \PBNUFs{F}_v \mid v \in V }$. A boolean expression $\PBNUFs{F}_v$, as
+        opposed to (non-parametrized) update function $\BNUFs{F}_v$, may
+        contain uninterpreted functions from $F$.
+\end{description}
+\end{ldefinition}
+
+We introduce a new notation for instantiations of PBNs. For a given
+parametrization $\paron{P} \in \paronset{P}$:
+\begin{description}
+    \item $\PBNUFs{F}_v[\paron{P}]$ denotes an instantiated
+        update function arising from interpreting every $\unf{f}$ used in the
+        boolean expression $\PBNUFs{F}_v$, as $\paron{P}(\unf{f})$.
+        The result is an ordinary update function $\BNUFs{F}_v : \set{0,
+        1}^{C(v)} \to \set{0, 1}$.
+    \item $\PBNUFs{F}[\paron{P}]$ is equal to $\set{
+        \PBNUFs{F}_v\left[\paron{P}\right] \mid v \in V }$.
+    \item $\PBN{B}[\paron{P}]$ is an instantiation of a PBN
+        $\PBN{B}$ in the parametrization $\paron{P}$. The result is a boolean
+        network $\left(V, \BNRs{R}, \PBNUFs{F}\left[\paron{P}\right]\right)$.
+\end{description}
+
+\begin{lexample} \label{example:PBN}
+This example illustrates the definition of a PBN by transforming the BN
+$\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ from Example~\ref{example:BN} into
+a parametrized boolean network $\PBN{B} = (V, \BNRs{R}, F, \paronset{P},
+\PBNUFs{F})$. We preserve the activating/inhibiting character of regulations
+depicted in Figure~\ref{fig:bn} and parametrize the update function for $b$.
+We define:
+\begin{align*}
+    F & = \set{\unf{f}^2} \\
+    \paronset{P} & = \set{\paron{P}_1, \paron{P}_2} \\
+    \paron{P}_1(\unf{f}^2) & = (x, y) \mapsto x \land \lnot y \\
+    \paron{P}_2(\unf{f}^2) & = (x, y) \mapsto x \lor \lnot y \\
+    \PBNUFs{F}_x & =
+        \begin{cases}
+            (a, b, c) \mapsto \unf{f}(b, c) & \text{if } x = b,\\
+            \BNUFs{F}_x & \text{else}.
+        \end{cases} \\
+\end{align*}
+Thus there are two BNs $\PBN{B}[\paron{P}_1]$ and $\PBN{B}[\paron{P}_2]$
+with different update functions for $b$, $\BNUFs{F}_b = b \land \lnot c$
+and $\BNUFs{F}_b = b \lor \lnot c$, respectively. An STG for
+$\PBN{B}[\paron{P}_1]$ is depicted in Figure~\ref{fig:STG}
+and for $\PBN{B}[\paron{P}_2]$ in Figure~\ref{fig:STG2}.
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[node distance={3.5em}, thick, main/.style = {draw, circle}]
+    \node[main] (010) {$\state{010}$};
+
+    \draw[->] (010) to [out=240, in=300, looseness=3] (010);
+
+    \node[main] (001) [right of=010, xshift=3.5em] {$\state{001}$};
+    \node[main] (101) [above of=001] {$\state{101}$};
+
+    \draw[->] (001) to [out=240, in=300, looseness=3] (001);
+    \draw[->] (101) -- (001);
+
+    \node[main] (011) [right of=001, xshift=7em] {$\state{011}$};
+    \node[main] (110) [right of=011] {$\state{110}$};
+    \node[main] (100) [above of=011] {$\state{100}$};
+    \node[main] (111) [left of=100] {$\state{111}$};
+    \node[main] (000) [right of=100] {$\state{000}$};
+
+    \draw[->] (111) -- (011);
+    \draw[->] (011) -- (110);
+    \draw[->] (110) -- (011);
+    \draw[->] (000) -- (011);
+    \draw[->] (100) -- (011);
+\end{tikzpicture}
+\caption{A state transition graph for parametrization $\paron{P}_2$ in
+    Example~\ref{example:PBN}.}
+\label{fig:STG2}
+\end{figure}
+\end{lexample}
+
 \section{Problem formulation}
+In this thesis, we target the problem of finding driver-sets via IBMFA in
+parametrized boolean networks. We aim at the following:
+\begin{enumerate}
+    \item Given a PBN $\PBN{B}$, find an (approximate) minimal driver-set
+        $\dset{D}$ such that $\dset{D}$ drives the network $\PBN{B}[\paron{P}]$
+        to a specific attractor $\nu$ for every parametrization $\paron{P}$.
+        Note that different parametrizations may result in distinct STG
+        attractors, so we consider only parametrizations resulting in a network
+        having $\nu$ among its attractors.
+    \item Compute a partition of the parametrization space defined by the
+        minimal driver set equivalence. In other words, each partition contains
+        all parametrizations $\paron{P}$ in which the network
+        $\PBN{B}[\paron{P}]$ has the same minimal driver-set for a given
+        attractor.
+    \item Implement user-friendly tools for running IBMFA for PBNs and the two
+        analyses above.
+    \item Benchmark our solution on a suitable set of parametrized boolean
+        networks.
+\end{enumerate}
+
+\chapter{Computational approach}
+
+\chapter{Implementation}
+
+\chapter{Results}
+
+\chapter{Conclusion}
 
 
 % TODO is this neccessary?
@@ -972,8 +1113,8 @@ time linear to $|V|$.
 %\addcontentsline{toc}{chapter}{\indexname} %% table of contents.
 %\printindex
 
-\appendix
-\chapter{An appendix}
-Here you can insert the appendices of your thesis.
+%\appendix
+%\chapter{An appendix}
+%Here you can insert the appendices of your thesis.
 
 \end{document}
