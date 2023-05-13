@@ -48,8 +48,10 @@
 
 \usepackage{algorithm2e}
 \RestyleAlgo{ruled}
+\SetKwProg{Fn}{function}{:}{end}
 \SetKwComment{Comment}{/* }{ */}
 \SetKw{Break}{break}
+\SetKw{Return}{return}
 \LinesNumbered
 
 \usepackage{listings} %% Source code highlighting
@@ -87,6 +89,11 @@
 
 
 \DeclareMathOperator{\stg}{stg}
+\DeclareMathOperator{\bdd}{bdd}
+\DeclareMathOperator{\attrf}{attr}
+\DeclareMathOperator{\dsetf}{dset}
+\DeclareMathOperator{\im}{Im}
+\DeclareMathOperator*{\argmin}{arg\,min}
 
 \NewDocumentCommand{\BN}{m}{\mathcal{#1}}
 \NewDocumentCommand{\BNRs}{m}{\mathcal{#1}} % BN Regulations
@@ -104,11 +111,19 @@
 \NewDocumentCommand{\BNtc}{m}{\rightsquigarrow_{\BN{#1}}} % transitive closure
 
 \NewDocumentCommand{\dset}{m}{\mathfrak{#1}} % driver set
+\NewDocumentCommand{\dsetsp}{}{\mathbb{D}} % space of driver sets
+\NewDocumentCommand{\dsetfmacro}{m}{\dsetf_{\attr{#1}}}
 
 \NewDocumentCommand{\dom}{m}{\mathcal{D}(#1)} % domain
+\NewDocumentCommand{\pset}{m}{\mathrm{P}(#1)} % power set
+\NewDocumentCommand{\cnt}{m}{\texttt{\#}(#1)} % count
+
+\NewDocumentCommand{\bddn}{m}{\mathcal{#1}} % bdd notation
+\NewDocumentCommand{\bddp}{m}{\bddn{#1}_{\text{p}}} % bdd for parametrizations
+\NewDocumentCommand{\bdduf}{m}{\bddn{#1}_{\text{uf}}} % bdd for update functions
 
 \DeclarePairedDelimiter{\set}{\{}{\}}
-\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclarePairedDelimiter{\card}{|}{|}
 
 
 
@@ -599,6 +614,7 @@ $\dset{D}$ can be interpreted also as a set of $\BN{B}$'s variable
 \[
     \set*{(v, s) \mid v \in V \land s \in \set{0, 1}}.
 \]
+The space of all driver-sets is denoted by $\dsetsp_{\BN{B}}$.
 \end{ldefinition}
 
 \begin{lexample}
@@ -725,6 +741,7 @@ mean-field approximations are used to cope with this exponential explosion:
 \end{description}
 
 \subsection{Individual-based mean-field approximation for boolean networks}
+\label{section:IBMFA}
 
 T.~Parmer~et~al.~\cite{infl_max_BN} presented a novel approach to
 individual-based mean-field approximation (IBMFA) applicable to a boolean
@@ -825,8 +842,8 @@ Here, we briefly illustrate the utilization of IBMFA~\cite{infl_max_BN} defined
 in the previous subsection for finding driver-sets. We adjust the original
 equation~\ref{eq:ibmfa} to incorporate driver-sets into the IBMFA simulation.
 \begin{ldefinition}
-Consider a driver-set $\dset{D}$. Then, the IBMFA simulation for BN
-$\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ is defined:
+Consider a BN $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ and a driver-set
+$\dset{D} \in \dsetsp_{\BN{B}}$. Then, the IBMFA simulation for BN is defined:
 \begin{align*}
     \sigma_v^{\dset{D}}(0) &=
     \begin{cases}
@@ -1082,11 +1099,12 @@ In this thesis, we target the problem of finding driver-sets via IBMFA in
 parametrized boolean networks. We aim at the following:
 \begin{enumerate}
     \item Given a PBN $\PBN{B}$, find an (approximate) minimal driver-set
-        $\dset{D}$ such that $\dset{D}$ drives the network $\PBN{B}[\paron{P}]$
-        to a specific attractor $\nu$ for every parametrization $\paron{P}$.
-        Note that different parametrizations may result in distinct STG
-        attractors, so we consider only parametrizations resulting in a network
-        having $\nu$ among its attractors.
+        $\dset{D} \in \dsetsp_{\PBN{B}}$ such that $\dset{D}$ drives the
+        network $\PBN{B}[\paron{P}]$ to a specific attractor $\nu$ for every
+        parametrization $\paron{P}$. We call such $\dset{D}$ a \emph{strong
+        driver-set}. Note that different parametrizations may result in
+        distinct STG attractors, so we consider only parametrizations resulting
+        in a network having $\nu$ among its attractors.
     \item Compute a partition of the parametrization space defined by the
         minimal driver set equivalence. In other words, each partition contains
         all parametrizations $\paron{P}$ in which the network
@@ -1099,6 +1117,375 @@ parametrized boolean networks. We aim at the following:
 \end{enumerate}
 
 \chapter{Computational approach}
+
+We stated our goals and introduced the related concepts in the previous
+chapter. Here, we present algorithms and data structures used to accomplish the
+goals.
+
+\section{Representing PBNs}
+
+An uninterpreted boolean function of arity $n$ has $2^n$ possible inputs
+valuations. The function may output two values for each input, 0 or 1. Thus
+$\unf{f}^n$ used in defining a PBN's update function has $2^{2^n}$ possible
+instantiations when not restricted by some regulations induced by the
+experimental biological data. This \emph{super-exponential} explosion of the
+parametrizations makes the explicit representation of a PBN practically
+intractable. To deal with this challenging property, we build on the work of
+J.~Kadlecaj, who presented a tool for PBN bifurcation analysis in his master's
+thesis~\cite{kadlecaj_thesis}. He approached the problem using \emph{Reduced
+Ordered Binary Decision Diagram} (ROBDDs, or short: BDDs).
+
+\paragraph{Binary Decision Diagrams}
+
+BDDs are a well-known data structure for working with boolean functions. A BDD
+is based on a binary, directed rooted tree, where the decision nodes correspond
+to the boolean variables occurring in the represented function. The tree
+contains only two terminal nodes connected to boolean values 0 and 1. They tell
+the function output for an input containing decision nodes on the path from the
+root to a leaf. Each node has two edges, called \emph{low} and \emph{high},
+corresponding to a valuation of the node's variable, 0 and 1, respectively.
+
+Interesting properties are the polynomial complexity of applying a binary
+logical operation on two BDDs and the space complexity of a BDD. Although, in
+the worst case, the tree still takes $\mathcal{O}(2^n)$ space for an $n$-ary
+boolean function, the used space is smaller in many cases.
+
+An $n$-ary boolean function $f$ may also be interpreted as a set of $n$-tuples.
+The set contains all tuples that are mapped to value 1 by $f$. A set operations
+$\cup$, $\cap$, $( )^\complement$ correspond to logical $\lor$, $\land$,
+$\lnot$. Thus BDDs are used to represent sets as well.
+
+We use a notation $\bddn{B} = \bdd(f)$ for a BDD representing function $f$.
+
+\paragraph{Representing uninterpreted functions}
+
+For each row in a truth table of $\unf{f}^n$, there is one boolean variable in
+a BDD. The constraints are added to BDD according to valid parametrizations of
+the PBN.
+\begin{lexample}
+Continuing with Example~\ref{example:PBN}, we illustrate a BDD for $\unf{f}^2$.
+Arity 2 results in four boolean variables for each row in the truth table:
+$f_{00}$, $f_{01}$, $f_{10}$, and $f_{11}$. For example, a condition $f_{00} =
+0$ restricts to instantiations $f$ of $\unf{f}^2$, where $f(0, 0) = 0$. A BDD
+consisting only of a terminal node 1 (or 0) then represents a set of all
+possible instantiations (or empty set, respectively). A BDD restricted to
+allowed parametrizations is depicted in Figure~\ref{fig:BDD}.
+
+\begin{figure}[!ht]
+\centering
+\begin{subfigure}{0.45\textwidth}
+\centering
+\begin{tikzpicture}[node distance={3.5em}, thick, main/.style = {draw, circle}]
+    \node[main] (01) {$f_{01}$};
+    \node[main] (10) [below of=01] {$f_{10}$};
+    \node[main] (00) [below of=10] {$f_{00}$};
+    \node[main] (11a) [below left of=00] {$f_{11}$};
+    \node[main] (11b) [below right of=00] {$f_{11}$};
+    \node[main] (1) [below right of=11a] {$1$};
+
+    \draw[dashed, ->] (01) -- (10);
+    \draw[->] (10) -- (00);
+    \draw[dashed, ->] (00) -- (11a);
+    \draw[->] (00) -- (11b);
+    \draw[dashed, ->] (11a) -- (1);
+    \draw[->] (11b) -- (1);
+\end{tikzpicture}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.45\textwidth}
+\centering
+\begin{tikzpicture}[node distance={3.5em}, thick, main/.style = {draw, circle}]
+    \node[main] (01) {$f_{01}$};
+    \node[main] (10) [below of=01] {$f_{10}$};
+    \node[main] (00) [below of=10] {$f_{00}$};
+    \node[main] (11) [below left of=00] {$f_{11}$};
+    \node[main] (1) [below right of=11] {$1$};
+
+    \draw[dashed, ->] (01) -- (10);
+    \draw[->] (10) -- (00);
+    \draw[dashed, ->] (00) -- (11);
+    \draw[->] (00) -- (1);
+    \draw[dashed, ->] (11) -- (1);
+\end{tikzpicture}
+\end{subfigure}
+\caption{A depiction of BDDs with variable ordering $f_{01}$, $f_{10}$,
+    $f_{00}$, $f_{11}$. (left) A BDD allowing the two parametrizations
+    $\paron{P}_1$ and $\paron{P}_2$, e.i. $x \land \lnot y$ and $x \lor \lnot
+    y$.  (right) A BDD after adding a valid parametrization $\paron{P}_3$, that
+    maps $\unf{f}^2$ to $(x, y) \mapsto \lnot y$.}
+\label{fig:BDD}
+\end{figure}
+\end{lexample}
+
+\paragraph{Representing update functions}
+To store a parametrized update function $\PBNUFs{F}_v$, we need two BDDs: one
+for valid parametrizations and one for instantiated update functions. The
+former is built as described in the previous section. Boolean variables for
+rows of all uninterpreted functions' truth tables used in the boolean
+expression $\PBNUFs{F}_v$ are put together into one BDD $\bddp{B}^v$
+(\enquote{p} for \emph{p}arametrizations), and the restrictions are applied.
+The latter BDD $\bdduf{B}^v$ (\enquote{uf} for \emph{u}pdate \emph{f}unctions)
+contains, in addition, variables from the context of $v$. This BDD represents a
+function from $\paronset{P} \times \set{0, 1}^{C(v)}$ to $\set{0, 1}$. So it
+takes a parametrization and a valuation for the context of $v$, and outputs an
+update value for $v$.  The result of $\bdduf{B}^v \land \bdd(g)$ for some
+function $g : \dom{\bddp{B}^v} \to \set{0, 1}$ is an update function
+$\PBNUFs{F}_v[\paron{P}]$, where $\paron{P} \restriction \set{\unf{f} \mid
+\PBNUFs{F}_v \text{ contains } \unf{f}}$ (a restriction takes place here
+because $\dom{\paron{P}}$ are all uninterpreted functions used in any
+$\PBNUFs{F}_v$) is represented by $g$.
+
+Then, the whole PBN is coded using a BDD $\bddp{B}$ for $\paronset{P}$:
+\[
+    \bddp{B} = \bigwedge_{v \in V} \bddp{B}^v
+\]
+and a set of BDDs $\set{\bdduf{B}^v \mid v \in V}$ for $\PBNUFs{F}$. We write
+$\dom{\bddp{B}}$ for a domain of $\bddp{B}$, which is a set of all boolean
+variables that may occur as internal nodes in $\bddp{B}$.
+
+\section{Finding attractors}
+
+The BDD representation can be utilized straightforwardly to find fixed-point
+attractors in synchronous semantics. We introduce an extra variable $v'$ for
+each $v$ in $V$. These boolean variables store the \emph{update values} for
+BN's variables. We construct a new BDD:
+\[
+    \bdduf{B} = \bigwedge_{v \in V} \left( \bdduf{B}^v \iff \bdd(v') \right)
+\]
+We interpret $\bdduf{B}$ as a set of elements (\enquote{parametrization},
+\enquote{state}, \enquote{next state}). We filter this set to contain only
+elements with valid parametrizations and the same \enquote{state} and
+\enquote{next state}, which are the fixed-point attractors:
+\[
+    \bddp{B} \land \bdduf{B} \land
+    \bigwedge_{v \in V} \left( \bdd(v) \iff \bdd(v') \right)
+\]
+We denote the found attractors by a function $\attrf$ mapping an
+attractor $\attr{A}$ to a set of parametrizations, in which the STG contains
+$\attr{A}$.
+
+\section{Parametrizations partitioning}
+
+For every attractor $\attr{A}$, we compute a partition of
+$\attrf(\attr{A})$, determined by an equivalence relation of
+driver-set equality. The result of partitioning is a family of sets:
+$\set{\paronset{P}_1, \ldots, \paronset{P}_p}$, such that all BNs
+$\set{\PBN{B}[\paron{P}] \mid \paron{P} \in \paronset{P}_i}$ have the same
+driver-set for attractor $\attr{A}$. The computation runs in a brute-force
+manner iterating over each parametrization $\paron{P} \in
+\attrf(\attr{A})$ and finding a driver-set by
+Algorithm~\ref{algo:greedy}. We assign the corresponding driver-set to each
+$\paronset{P}_i$. Then the result is represented as a mapping $\dsetfmacro{A}:
+\dsetsp \to \pset{\attrf(\attr{A})}$. $\pset{X}$ denotes a power set (set of
+all subsets) of $X$. By $\cnt{\dsetfmacro{A}}$ we denote total number of mapped
+parametrizations $\sum_{\paronset{P} \in \im(\dsetfmacro{A})} |\paronset{P}|$.
+
+This method does not scale well as the number of
+parametrizations grows super-exponentially with respect to the number of
+regulators $|C(v)|$ and exponentially with respect to the number of BN's
+variables $|V|$. Therefore, it is suitable just for an analysis of
+small-to-medium models.
+
+To characterize the diversity of found driver-sets $\dsetfmacro{A}$
+numerically, we employ normalized (binary) entropy:
+\begin{align*}
+    H(\dsetfmacro{A})
+    &= - \sum_{\paronset{P} \in \im(\dsetfmacro{A})}
+        \frac{|\paronset{P}|}{N} \log_2 \frac{|\paronset{P}|}{N} \\
+    &= \log_2 N - \frac{1}{N} \sum_{\paronset{P} \in \im(\dsetfmacro{A})}
+        |\paronset{P}| \cdot \log_2 |\paronset{P}|
+\end{align*}
+$\im{f}$ denotes an image of a function $f$ and $N = \cnt{\dsetfmacro{A}}$.
+
+Entropy has suitable properties. Consider partitioning into $P$, two
+parametrizations' groups of size 50. It has an entropy equal to 1. For a more
+fine-grained partition, the diversity is of a higher level; we want to express
+that numerically. For four groups of size 25, the entropy is 2 --- conversely,
+a partition having just one group results in zero entropy. When the number of
+groups remains the same as in the original example $P$, but their sizes change
+to 25 and 75, then the diversity is lower. For this partition, randomly
+choosing one of the driver-sets has a higher probability of taking the
+applicable one than for $P$. The entropy changes accordingly, lowers to 0.811.
+
+\subsection{Decision tree induction}
+
+The following task is to explain the partitioning and show differences in the
+arisen groups of parametrizations. We approach this problem using decision
+trees (DTs)\footnote{\url{https://en.wikipedia.org/wiki/Decision_tree}}. A DT,
+similarly to BDD, is based on a directed rooted tree. Its internal nodes serve
+as a test for some attributes with outgoing edges for possible test outcomes.
+The leaves represent the final class. Decision trees are commonly used as a
+data mining method~\cite{data_mining}. Learning decision trees from data is
+done step-wise, starting from the root node and developing towards the leaves
+recursively. The pseudocode is presented in Algorithm~\ref{algo:dt}. We used
+the conventional \emph{information gain} condition for splitting decision
+nodes~\cite{decision_trees}. As information gain is just a reduction of
+entropy, we minimize the posterior entropy instead of maximizing information
+gain. In our setting, a leaf contains a driver-set, and an internal (decision)
+node consists of a boolean variable from $\dom{\bddp{B}}$.
+
+\begin{algorithm}[!ht]
+\caption{Building a decision tree for parametrizations partition}
+\label{algo:dt}
+
+\SetAlgoLined
+\SetKwFunction{Split}{split}
+\SetKwFunction{CondEntropy}{cond\_H}
+\SetKwFunction{MakeDT}{make\_DT}
+
+\KwOut{\MakeDT{$\dsetfmacro{A}, \dom{\bddp{B}}$}}
+\BlankLine
+\Fn{\MakeDT{$\dsetf, X$}}{
+    \KwIn{$\dsetf$ to create a DT for, using decision variables from $X$.}
+    \KwOut{A DT $(V, E, R)$ with nodes $V$, edges $E$, and root $R$.
+        An edge $e \in E$ is a 3-tuple
+        (\enquote{from}, \enquote{to}, \enquote{label}). \enquote{label} stands
+        for the test outcome.}
+    \BlankLine
+    \If{$\dsetf \text{ is empty }$}{
+        \Return $(\set{\emptyset}, \emptyset, \emptyset)$\;\label{algo:empty}
+    }
+    \If{$\dom{\dsetf} \text{ contains just one element } \dset{D}$}{
+        \Return $(\set{\dset{D}}, \emptyset, \dset{D})$\;
+    }
+    $x \gets \argmin_{x \in X}$ \CondEntropy{$\dsetf, x$}\;
+    $X \gets X \setminus \set{x}$\;
+    $(\dsetf_l, \dsetf_r) \gets$ \Split{$\dsetf, x$}\;
+    $(V_l, E_l, R_l) \gets$ \MakeDT{$\dsetf_l, X$}\;
+    $(V_r, E_r, R_r) \gets$ \MakeDT{$\dsetf_r, X$}\;
+    \Return $(V_l \cup V_r \cup \set{x},
+        E_l \cup E_r \cup \set{(x, R_l, 0), (x, R_r, 1)}, x)$\;
+}
+\BlankLine
+\Fn{\Split{$\dsetf, x$}}{
+    \KwOut{$\dsetf$ split when $x = 0$ and $x = 1$}
+    \BlankLine
+    $\dsetf_l \gets \dset{D} \mapsto \dsetf(\dset{D}) \land (x \iff 0)$\;
+    $\dsetf_l \gets \dsetf_l \restriction
+        \set{\dset{D} \mid \dsetf_l(\dset{D}) \neq \emptyset}$\;
+    $\dsetf_r \gets \dset{D} \mapsto \dsetf(\dset{D}) \land (x \iff 1)$\;
+    $\dsetf_r \gets \dsetf_r \restriction
+        \set{\dset{D} \mid \dsetf_r(\dset{D}) \neq \emptyset}$\;
+    \Return $(\dsetf_l, \dsetf_r)$\;
+}
+\BlankLine
+\Fn{\CondEntropy{$\dsetf, x$}}{
+    \KwOut{Conditional entropy $H(\dsetf \mid x)$}
+    \BlankLine
+    $(\dsetf_l, \dsetf_r) \gets $ \Split{$\dsetf, x$}\;
+    \Return $\frac{\cnt{\dsetf_l}}{\cnt{\dsetf}} H(\dsetf_l)
+        + \frac{\cnt{\dsetf_r}}{\cnt{\dsetf}} H(\dsetf_r)$\;
+}
+\end{algorithm}
+
+\subsection{Decision tree postprocessing}
+Building a decision tree as described in Algorithm~\ref{algo:dt} may result in
+empty leaves (line~\ref{algo:empty}). It happens when a variable chosen for a
+decision node does not split $\dsetf$, but only restricts its parametrizations
+that still end in the same node (and the other one is an empty leaf). As these
+empty nodes does not truly mean empty driver-sets, we need to get rid of them.
+The process is described in Figure~\ref{fig:dt_post}.
+
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[node distance={5em}, thick, node/.style = {draw, circle},
+                    leaf/.style = {draw, rectangle}]
+    \node[node] (a) {$a$};
+    \node[node] (b) [below left of=a] {$b$};
+    \node[leaf] (e) [below right of=a] {$\emptyset$};
+    \node[leaf] (d1) [below left of=b] {$\dset{D}_1$};
+    \node[leaf] (d2) [below right of=b] {$\dset{D}_2$};
+
+    \draw[dashed, ->] (a) -- (b) node [near end, above] {0};
+    \draw[->] (a) -- (e) node [near end, above] {1};
+    \draw[dashed, ->] (b) -- (d1) node [near end, above] {0};
+    \draw[->] (b) -- (d2) node [near end, above] {1};
+\end{tikzpicture}
+\quad
+\quad
+\begin{tikzpicture}[node distance={5em}, thick, node/.style = {draw, ellipse},
+                    leaf/.style = {draw, rectangle}]
+    \node[node] (ab) {$\lnot a \land b$};
+    \node[leaf] (d1) [below left of=ab] {$\dset{D}_1$};
+    \node[leaf] (d2) [below right of=ab] {$\dset{D}_2$};
+
+    \draw[dashed, ->] (ab) -- (d1) node [near end, above] {0};
+    \draw[->] (ab) -- (d2) node [near end, above] {1};
+\end{tikzpicture}
+\caption{An example of simple decision tree before (left) and after (right) the
+    postprocessing step, that removes the \enquote{empty} driver-set leaves.}
+\label{fig:dt_post}
+\end{figure}
+
+\section{Strong driver-sets}
+
+To find a driver-set $\dset{D}$ such that for every parametrization $\paron{P}$
+in $\attrf{\attr{A}}$, $\dset{D}$ drives $\PBN{B}[\paron{P}]$ toward attractor
+$\attr{A}$ (so, \emph{strong driver-set}), we extend the IBMFA method to
+average over parametrizations as well. Thus, one \enquote{individual} here is a
+randomly initiated configuration and chosen parametrization instead of only a
+random configuration for the original IBMFA for BNs.
+
+\begin{ldefinition}
+Consider a PBN $\PBN{B} = (V, \BNRs{R}, F, \paronset{P}, \PBNUFs{F})$.
+Its average dynamics is approximated in the following way:
+\begin{equation}
+    \sigma_v(t + 1)
+    = \frac{1}{|\paronset{P}|} \sum_{\paron{P} \in \paronset{P}}
+        \sum_{\substack{\nu \in \set{0, 1}^V \\
+                \PBNUFs{F}_v[\paron{P}](\nu\restriction C(v)) = 1}} 
+            \prod_{u \in V}
+                \left[ \sigma_u(t) \right]^{\nu(u)}
+                \cdot \left[ 1 - \sigma_u(t) \right]^{1 - \nu(u)}
+    \label{eq:pbn_ibmfa}
+\end{equation}
+\end{ldefinition}
+
+We utilize the BDD representation $\bddp{B}$ of $\paronset{P}$ so that we do
+not need to iterate over all $\paron{P} \in \paronset{P}$ in the outer-most
+sum of formula~\ref{eq:pbn_ibmfa}. For any two $\paron{P}_1, \paron{P}_2 \in
+\paronset{P}$, such that $\paron{P}_1(\unf{f}^n) = \paron{P}_2(\unf{f}^n)$ for
+all $\unf{f}^n$ used in $\PBNUFs{F}_v$, the instantiated update functions
+are equal, $\PBNUFs{F}_v[\paron{P}_1] = \PBNUFs{F}_v[\paron{P}_2]$. Therefore
+these two parametrizations contribute to the sum equaly and the outer-most
+sum can be changed to:
+\[
+    \frac{1}{|\paronset{P}'|} \sum_{\paron{P} \in \paronset{P}'}
+\]
+where $\paronset{P}' = \set{\paron{P}' \mid \paron{P} \in \paronset{P}}$ and
+\[
+    \paron{P}'(\unf{f}^n) =
+        \begin{cases}
+            \paron{P}(\unf{f}^n &
+                \text{if } \unf{f}^n \text{ is used in } \PBNUFs{F}_v,\\
+            (a_1, \ldots, a_n) \mapsto 0 & \text{else}.
+        \end{cases}
+\]
+So, practically, we iterate over satisfying valuations of BDD $\bddp{B}^v$.
+
+\subsection{Time complexity}
+
+The time complexity of computing IBMFA for $T$ time steps is $\mathcal{O}(|V|
+\cdot 2^k \cdot T)$, where $k$ is the average node degree (see section~\ref{section:IBMFA}).
+Then, calculating the IBMFA explicitly for every parametrization would take
+$\mathcal{O}(|V| \cdot 2^k \cdot T \cdot \prod_{v \in V} |\bddp{B}^v|)$
+time. Note that $\prod_{v \in V} |\bddp{B}^v|) = |\bddp{B}| =
+|\paronset{P}|$. On the contrary, our proposed approximation is bound by:
+\[
+\mathcal{O}\left(\left[\sum_{v \in V} \card*{\bddp{B}^v}\right]
+    \cdot 2^k \cdot T\right)
+= \mathcal{O}\left(\left[\max_{v \in V} \card*{\bddp{B}^v}\right]
+    \cdot |V| \cdot 2^k \cdot T \right)
+\]
+When we rewrite the estimate for the explicit computation, we notice
+a polynomial improvement:
+\[
+\mathcal{O}\left(|V| \cdot 2^k \cdot T \cdot
+    \prod_{v \in V} \card*{\bddp{B}^v}\right)
+= \mathcal{O}\left(\left[\max_{v \in V} \card*{\bddp{B}^v}\right]^{|V|}
+    \cdot |V| \cdot 2^k \cdot T\right)
+\]
+
 
 \chapter{Implementation}
 
