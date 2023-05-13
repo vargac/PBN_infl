@@ -1339,8 +1339,7 @@ node consists of a boolean variable from $\dom{\bddp{B}}$.
     \KwIn{$\dsetf$ to create a DT for, using decision variables from $X$.}
     \KwOut{A DT $(V, E, R)$ with nodes $V$, edges $E$, and root $R$.
         An edge $e \in E$ is a 3-tuple
-        (\enquote{from}, \enquote{to}, \enquote{label}). \enquote{label} stands
-        for the test outcome.}
+        (\enquote{from}, \enquote{to}, \enquote{test outcome}).}
     \BlankLine
     \If{$\dsetf \text{ is empty }$}{
         \Return $(\set{\emptyset}, \emptyset, \emptyset)$\;\label{algo:empty}
@@ -1488,6 +1487,8 @@ a polynomial improvement:
 
 
 \chapter{Implementation}
+
+
 
 \chapter{Results}
 
