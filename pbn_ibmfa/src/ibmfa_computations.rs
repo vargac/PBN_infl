@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use biodivine_lib_bdd::BddPartialValuation;
 
 use crate::symbolic_sync_graph::{SymbSyncGraph, VarIndex, PUpdateFunExplicit};
@@ -6,8 +8,11 @@ use crate::driver_set::{PBNFix, UnitFix};
 
 pub fn entropy(probs: &[f32]) -> f32 {
     probs.iter()
-        .map(|p| if *p == 0.0 || *p == 1.0 { 0.0 }
-                 else { - p * p.log2() - (1.0 - p) * (1.0 - p).log2() })
+        .map(|p| {
+            let p = p.clamp(0.0, 1.0);
+            if p == 0.0 || p == 1.0 { 0.0 }
+                 else { - p * p.log2() - (1.0 - p) * (1.0 - p).log2() }
+         })
         .sum::<f32>() / probs.len() as f32
 }
 
@@ -93,7 +98,10 @@ pub fn minimize_entropy<'a>(
 
             (unit_fix, (index, ent), probs)
         })
-        .min_by(|(_, a, _), (_, b, _)| a.partial_cmp(b).unwrap())
+        .min_by(|(_, a, _), (_, b, _)| match a.0.cmp(&b.0) {
+            Ordering::Equal => a.1.total_cmp(&b.1),
+            ord => ord,
+        })
         .map(|(unit_fix, (_, ent), probs)| (unit_fix, ent, probs))
 }
 
