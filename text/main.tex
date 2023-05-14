@@ -1288,13 +1288,13 @@ small-to-medium models.
 
 To characterize the diversity of found driver-sets $\dsetfmacro{A}$
 numerically, we employ normalized (binary) entropy:
-\begin{align*}
+\begin{align} \label{formula:entropy}
     H(\dsetfmacro{A})
     &= - \sum_{\paronset{P} \in \im(\dsetfmacro{A})}
         \frac{|\paronset{P}|}{N} \log_2 \frac{|\paronset{P}|}{N} \\
     &= \log_2 N - \frac{1}{N} \sum_{\paronset{P} \in \im(\dsetfmacro{A})}
-        |\paronset{P}| \cdot \log_2 |\paronset{P}|
-\end{align*}
+        |\paronset{P}| \cdot \log_2 |\paronset{P}| \nonumber
+\end{align}
 $\im{f}$ denotes an image of a function $f$ and $N = \cnt{\dsetfmacro{A}}$.
 
 Entropy has suitable properties. Consider partitioning into $P$, two
@@ -1488,9 +1488,144 @@ a polynomial improvement:
 
 \chapter{Implementation}
 
+This chapter is dedicated to implementation details and a description of
+created tools.
+
+The base of our implementation is a Rust library, simply named
+\texttt{pbn\_ibmfa}. We have chosen
+Rust\footnote{\url{https://www.rust-lang.org/}} as a programming language
+mainly because of the useful available libraries \texttt{biodivine-lib-bdd}
+used for creating and manipulating BDDs and \texttt{biodivine-lib-param-bn},
+which implements a parametrized boolean network representation by BDDs. It
+supports us with loading the model files, making all the BDDs, and computing
+the restrictions $\paronset{P}$ for them. Further processing is the
+responsibility of our library, \texttt{pbn\_ibmfa}. It consists of several
+modules:
+\begin{description}
+\item[\texttt{symbolic\_sync\_graph}] Contains a representation of symbolic
+    synchronous STG. Symbolic STG means that just the update functions are
+    stored, in the form of BDDs, as described in the previous chapter. This
+    module provides the application of constraints given by the input model
+    file, basic graph operations, evaluation of update functions, and
+    finding attractors.
+\item[\texttt{ibmfa\_computations}] Contains entropy computation, IBMFA
+    simulation (both versions, for BNs and PBNs), and the entropy minimization
+    algorithm.
+\item[\texttt{driver\_set}] Implements a driver-set search and parametrization
+    partitioning (utilizes the module \texttt{ibmfa\_computations}).
+\item[\texttt{decision\_tree}] Contains a definition of the decision tree data
+    structure and the Algorithm~\ref{algo:dt} for constructing them from a
+    partition of parametrizations.
+\item[\texttt{utils}] Simple utility functions, mainly for printing various
+    data structures to standard output.
+\end{description}
+
+This library is used to implement two user applications for working with PBNs:
+one command line and one graphical.
+
+\section{Command line tool \texttt{pbn\_ibmfa}}
+
+The purpose of this command line utility is to run the computations we have presented in our thesis. It takes as input a path to a boolean network file in the \texttt{.aeon} format\footnote{\url{https://biodivine.fi.muni.cz/aeon/}} and prints results of user-selected computations in JSON\footnote{\url{https://www.json.org/json-en.html}} format to standard output. \texttt{pbn\_ibmfa} accepts an argument for producing a JSON with nice spacings and indentations (instead of the default, where the JSON elements are printed in one big chunk of characters). A user may also set the number of iterations used in the IBMFA computing. \texttt{pbn\_ibmfa} takes two subcommands:
+\begin{description}
+\item[Simulation] The output is a time series of BN's probabilistic
+    configurations. Users may choose between IBMFA and exact (brute-force)
+    average dynamics. There is a possibility of fixing variables to discover
+    the dynamics for diverse driver-sets.
+\item[Analysis] Without any other option, it just detects the fixed-point
+    attractors. Users may further choose to find a strong driver-set and/or
+    driver-sets (and corresponding parametrization partitions) for every
+    attractor. Not relating to attractors, \texttt{pbn\_ibmfa} is capable of
+    finding the unconstrained strong driver-set (e.i. the one that leads to
+    some attractor most quickly). If someone would like to examine driver-sets
+    before the postprocessing reduction, he can use the argument
+    \verb|--not-reduced|.
+\end{description}
+
+\section{Interactive graphical tool}
+
+The implementation is divided into two parts: a client (\emph{front-end}) and a
+server (\emph{back-end}). The client is a GUI web application that the user
+directly interacts with. The server performs all the intensive computations on
+PBNs and communicates with the client. This separation allows the server to run
+on a higher-performance computer while the client lives in a browser of an
+ordinary desktop computer or laptop.
+
+\subsection{Running the software}
+
+\paragraph{Back-end}
+
+The server is a binary Rust crate using the library \texttt{pbn\_ibmfa}. By
+default, it listens on a localhost's port 5678. This setting can be changed via
+command line arguments to listen on a different port number and address. After
+successful initialization, the server reports it listens on a given address and
+port. Then, the server reports an (eventually) successful connection and what
+communication with the client is going on (for an ordinary user, that
+information is not much important). For reasonably sized models, it is possible
+to run the server on a personal computer (we elaborate more on this in the
+chapter~\ref{section:results}).
+
+\paragraph{Front-end}
+
+The client consists of one HTML page \verb|index.html| and several JavaScript
+scripts included, ready to be opened in a standard web browser. On a startup,
+an almost empty webpage gets displayed, with one input for the port number and
+a button for initiating the connection. Afterward, the user is shown an error
+message or prompted to choose a file containing the input model. In the case of
+an invalid file format, the model is rejected, and information is given to the
+user about the error. For valid PBN, the numbers of variables and
+parametrizations are shown, together with a new button for finding the
+attractors. All these interactions are done on a \enquote{Status bar} side
+panel. It is depicted, along with other parts of the web application, in
+Figure~\ref{fig:web_app}. Now, a description of the individual parts follows.
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[height=0.7\textwidth, angle=270]{web_application.png}
+\caption{A design of the webpage GUI.}
+\label{fig:web_app}
+\end{figure}
+
+\begin{description}
+\item[Status bar] Except for what was already described in the previous
+    paragraph, it displays the tool's state, whether it is connected, and if
+    some computation is in progress. As the tool is single-threaded, only one
+    calculation may run at a time. The bar's bottom part shows a variable name
+    corresponding to a variable value in the \enquote{Attractors}'s panel,
+    which is hovered over by a mouse pointer.
+\item[Attractors] The panel consists of a scrollable table of found fixed-point
+    attractors ordered by the corresponding parametrization amount. The amount
+    is shown in the column \enquote{colors}\footnote{The name is used in
+        connection to
+        AEON(\url{https://sybila.fi.muni.cz/tools_html/aeon.html}), where PBN's
+    parametrizations are also called colors.} The column \enquote{state} is
+    straightforward; it is just a bit vector representing the attractor (e.i.
+    each bit corresponds to one PBN's variable). The next two columns are
+    initially filled with question marks because it could take a long time to
+    compute all those values. Instead, the user chooses which attractor row to
+    expand by clicking on it (the row highlighted green in
+    Figure~\ref{fig:web_app}). The back-end then finds the strong driver-set
+    (shown in the last column -- hyphens are used for variables not contained
+    in the strong driver-set) and parametrization partition with assigned
+    driver-sets. In the column \enquote{entropy}, a binary entropy for the
+    partition is calculated (see Formula~\ref{formula:entropy}).
+\item[Decision tree] The rightmost panel depicts a decision tree for the
+selected attractor. Each edge is labeled by the corresponding number of
+parametrizations. On hovering a node, more context is displayed: for leaves,
+names of the variables in the driver-set; for internal nodes, the exact boolean
+function contained in the node. Internal nodes are rather labeled by variable
+names, whose update function's parametrizations are restricted by the contained
+boolean function. We made this decision because labeling by the full boolean
+function would draw huge nodes. The user can drag the nodes and reset them to
+the original layout by clicking a button. Decision trees are rendered using a
+JavaScript visualization library
+\texttt{vis.js}\footnote{\url{https://visjs.org/}}.
+\end{description}
 
 
-\chapter{Results}
+
+
+
+\chapter{Results} \label{section:results}
 
 \chapter{Conclusion}
 
