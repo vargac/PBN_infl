@@ -18,11 +18,19 @@
     advisor     = {prof. RNDr. Luboš Brim, CSc.},
     title       = {%
 		Influence maximization in partially specified Boolean networks},
-    keywords    = {keyword1, keyword2, ...},
+    keywords    = {Boolean networks, mean-field, attractor, control},
     abstract    = {%
-      This is the abstract of my thesis, which can
-
-      span multiple paragraphs.
+        Mean-field approximation methods are successfully used to analyze
+        spreading processes in network models, with great utilization in
+        epidemic models. There have been attempts to adopt these methods for
+        Systems biology models, among others, for Boolean networks, to find the
+        most influential system components. Biology experiments often result in
+        some level of uncertainty for modeling. Partially specified Boolean
+        networks formalize this uncertainty by introducing logical parameters
+        to traditional Boolean networks. In this thesis, we target the problem
+        of extending the Individual-based mean-field approximation to work with
+        those logical parameters and develop a graphical tool for running the
+        method on partially specified Boolean networks.
     },
     thanks      = {%
       These are the acknowledgements for my thesis, which can
@@ -54,17 +62,6 @@
 \SetKw{Return}{return}
 \LinesNumbered
 
-\usepackage{listings} %% Source code highlighting
-\lstset{
-  basicstyle      = \ttfamily,
-  identifierstyle = \color{black},
-  keywordstyle    = \color{blue},
-  keywordstyle    = {[2]\color{cyan}},
-  keywordstyle    = {[3]\color{olive}},
-  stringstyle     = \color{teal},
-  commentstyle    = \itshape\color{magenta},
-  breaklines      = true,
-}
 \usepackage{floatrow} %% Putting captions above tables
 \floatsetup[table]{capposition=top}
 \usepackage[babel]{csquotes} %% Context-sensitive quotation marks
