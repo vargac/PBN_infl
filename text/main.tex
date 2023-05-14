@@ -215,8 +215,8 @@ BNs play an important role in systems biology, but it is often hard to infer
 the boolean functions controlling the system. A knowledge that some protein
 \(a\) and \(b\) activate another protein \(c\) is insufficient because both
 boolean functions \(a \land b\) and \(a \lor b\) are consistent with the
-knowledge. This uncertainty may be expressed in a \emph{parametrised boolean
-network} (PBN), a more general version of BN.
+knowledge. This uncertainty may be expressed in a \emph{partially defined
+boolean network} (also \emph{parametrized boolean networks}), a more general version of BN.
 
 \paragraph{Attractors and control}
 
@@ -993,11 +993,13 @@ effect of two molecules on the occurrence of another component is insufficient.
 The boolean network formalism still requires choosing whether both molecules
 together have this effect ($\land$) or if any of them is enough ($\lor$).
 However, it would be nice to use at least the knowledge about inhibiting that
-we have. A generalization of a BN model to a \emph{parametrized boolean network}
-allows it.
+we have. A generalization of a BN model to a \emph{parametrized boolean
+network}\footnote{The two terms \enquote{partially defined boolean network} and
+\enquote{parametrized boolean network} coincide. In the text, we use the later
+one, which is shorter.} allows it.
 
 \begin{ldefinition}
-A \emph{parametrized boolean network} is a 5-tuple
+A \emph{parametrized boolean network} (PBN) is a 5-tuple
 $\PBN{B} = (V, \BNRs{R}, F, \paronset{P}, \PBNUFs{F})$, where:
 \begin{description}
     \item $V$ is a set of \emph{boolean variables}.
@@ -1622,10 +1624,7 @@ JavaScript visualization library
 \end{description}
 
 
-
-
-
-\chapter{Results} \label{section:results}
+\chapter{Evaluation} \label{section:results}
 
 \chapter{Conclusion}
 
