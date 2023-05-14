@@ -17,51 +17,55 @@ use pbn_ibmfa::driver_set::{find_driver_set, colors_partition, PBNFix, UnitFix,
 
 
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
-    /// Uses an IBMFA simulation to find driver sets for fixed point attractors
-    /// by minimizing the entropy of the system.
-    Driver(DriverArgs),
-    /// Just run the IBMFA simulation
+    /// Run analysis of a Parametrized Boolean Network.
+    /// By default just detects fixed-point attractors.
+    Analysis(AnalysisArgs),
+    /// Run the simulation for average PBN dynamics.
     Simulation(SimulationArgs),
 }
 
-#[derive(Args)]
-struct DriverArgs {
-    /// The path to the input .aeon file
-    path: std::path::PathBuf,
-    /// Do not reduce the driver set
+#[derive(Args, Debug)]
+struct AnalysisArgs {
+    /// Find a strong driver-set for each attractor.
+    #[arg(short, long)]
+    strong_dset: bool,
+    /// Find an unconstrained strong driver-set.
+    #[arg(short = 'S', long)]
+    strong_dset_free: bool,
+    /// Compute a partition of parametrizations given by driver-sets equality.
+    #[arg(short, long)]
+    driver_sets: bool,
+    /// Do not reduce the driver-set.
     #[arg(long)]
     not_reduced: bool,
-    /// Pretty json output
-    #[arg(short, long)]
-    pretty_json: bool,
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 struct SimulationArgs {
-    /// The path to the input .aeon file
-    path: std::path::PathBuf,
-    /// The length of the simulation
-    #[arg(short, long, default_value_t = 10)]
-    time_steps: u8,
-    /// Compute the average dynamics by brute-force instead of IBMFA
+    /// Compute the average dynamics by brute-force instead of IBMFA.
     #[arg(short, long)]
     brute_force: bool,
-    /// Pretty json output
-    #[arg(short, long)]
-    pretty_json: bool,
     /// Fix variable. Syntax: "{var_name}={value}". Value is "0" or "1".
     #[arg(short, long)]
     fix: Vec<String>,
 }
 
 
-/// Run analysis of a Parametrized Boolean Network.
-#[derive(Parser)]
+/// A tool for running IBMFA on PBNs
+#[derive(Parser, Debug)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    /// Path to the input .aeon file
+    path: std::path::PathBuf,
+    /// Pretty json output
+    #[arg(short, long)]
+    pretty_json: bool,
+    /// Length of the simulation
+    #[arg(short, long, default_value_t = 10)]
+    time_steps: u8,
 }
 
 
@@ -119,9 +123,7 @@ fn add_parameter_variables(
     );
 }
 
-const ITERATIONS: usize = 10;
-
-fn main_driver(args: &DriverArgs) {
+fn main_analysis(args: &Cli, analysis_args: &AnalysisArgs) {
     // Load the model from a file
     let model = load_model(&args.path);
 
@@ -139,6 +141,23 @@ fn main_driver(args: &DriverArgs) {
 
     json_data["colors"] = sync_graph.unit_colors().approx_cardinality().into();
 
+    if analysis_args.strong_dset_free {
+        let (pbn_fix, probs) = find_driver_set(
+            &sync_graph, args.time_steps as usize,
+            !analysis_args.not_reduced, None, true, false);
+
+        let state = bdd_values_to_json(
+            probs.iter().zip(context.state_variables().iter())
+                .map(|(p, bdd_var)| (*bdd_var, *p == 1.0)),
+            bdd_var_set
+        );
+
+        json_data["unconstrained"] = object!{
+            attractor: state,
+            strong_driver_set: driver_set_to_json(
+                pbn_fix.get_driver_set(), context)
+        };
+    }
 
     // Compute the attractors
     let mut attrs = sync_graph.fixed_point_attractors();
@@ -151,38 +170,53 @@ fn main_driver(args: &DriverArgs) {
                 bdd_var_set
             );
 
-            let attr_tuple = (&attr.vertices(), &attr.colors());
-
-            let (pbn_fix, _) = find_driver_set(
-                &sync_graph, ITERATIONS, !args.not_reduced,
-                Some(attr_tuple), true, false);
-
-            let global_driver_set = driver_set_to_json(
-                pbn_fix.get_driver_set(), context);
-
-            let mut driver_sets = colors_partition(
-                &sync_graph, ITERATIONS, !args.not_reduced, attr_tuple, false);
-            driver_sets.sort_by(|(c1, _), (c2, _)|
-                c2.exact_cardinality().cmp(&c1.exact_cardinality()));
-            let driver_sets = driver_sets.into_iter()
-                .map(|(colors, driver_set)| object!{
-                    driver_set: driver_set_to_json(&driver_set, context),
-                    colors: GraphColors::new(colors, context)
-                        .approx_cardinality()
-                })
-                .collect::<json::Array>();
-
-            object!{
+            let mut attr_json = object!{
                 colors: attr.approx_cardinality(),
                 state: state,
-                global_driver_set: global_driver_set,
-                driver_sets: JsonValue::Array(driver_sets)
-            }})
+            };
+
+            if !analysis_args.strong_dset && !analysis_args.driver_sets {
+                return attr_json;
+            }
+
+            let attr_tuple = (&attr.vertices(), &attr.colors());
+
+            // Strong driver-set
+            if analysis_args.strong_dset {
+                let (pbn_fix, _) = find_driver_set(
+                    &sync_graph, args.time_steps as usize,
+                    !analysis_args.not_reduced, Some(attr_tuple), true, false);
+
+                attr_json["strong-driver-set"] = driver_set_to_json(
+                    pbn_fix.get_driver_set(), context);
+            }
+
+            // Parametrizations partition by driver-set equality
+            if analysis_args.driver_sets {
+                let mut driver_sets = colors_partition(
+                    &sync_graph, args.time_steps as usize,
+                    !analysis_args.not_reduced, attr_tuple, false);
+                driver_sets.sort_by(|(c1, _), (c2, _)|
+                    c2.exact_cardinality().cmp(&c1.exact_cardinality()));
+                let driver_sets = driver_sets.into_iter()
+                    .map(|(colors, driver_set)| object!{
+                        driver_set: driver_set_to_json(&driver_set, context),
+                        colors: GraphColors::new(colors, context)
+                            .approx_cardinality()
+                    })
+                    .collect::<json::Array>();
+
+                attr_json["driver-sets"] = JsonValue::Array(driver_sets);
+            }
+
+            attr_json
+        })
         .collect::<json::Array>()
     );
 
     print_json(json_data, args.pretty_json);
 }
+
 
 fn parse_fixes(fixes: &[String], model: &BooleanNetwork)
 -> Result<Vec<UnitVertexFix>, String> {
@@ -210,9 +244,9 @@ fn parse_fixes(fixes: &[String], model: &BooleanNetwork)
         .collect()
 }
 
-fn main_simulation(args: &SimulationArgs) {
+fn main_simulation(args: &Cli, sim_args: &SimulationArgs) {
     let model = load_model(&args.path);
-    let user_fixes = parse_fixes(&args.fix, &model).unwrap_or_else(|err| {
+    let user_fixes = parse_fixes(&sim_args.fix, &model).unwrap_or_else(|err| {
         eprintln!("Err: {err}");
         process::exit(1);
     });
@@ -242,7 +276,7 @@ fn main_simulation(args: &SimulationArgs) {
 
     let mut all_probs: Vec<Vec<f32>>;
 
-    if args.brute_force {
+    if sim_args.brute_force {
         let vars_num = context.num_state_variables();
 
         all_probs = vec![vec![0.0; vars_num]; args.time_steps as usize];
@@ -337,7 +371,7 @@ fn print_json(json_data: json::JsonValue, pretty: bool) {
 fn main() {
     let args = Cli::parse();
     match &args.command {
-        Commands::Driver(args) => main_driver(args),
-        Commands::Simulation(args) => main_simulation(args),
+        Commands::Analysis(driver_args) => main_analysis(&args, driver_args),
+        Commands::Simulation(sim_args) => main_simulation(&args, sim_args),
     }
 }
