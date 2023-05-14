@@ -1623,8 +1623,87 @@ JavaScript visualization library
 
 \chapter{Evaluation} \label{section:results}
 
+This chapter serves for the evaluation of our algorithms. We have used the
+command line tool \texttt{pbn\_ibmfa} and benchmarked two processes: finding
+strong driver-sets and computing the parametrization partitioning by
+driver-sets. The input models can be found on
+GitHub\footnote{\url{https://github.com/sybila/biodivine-boolean-models/tree/main}}.
+We have run the tool on fully parametrized versions of networks in the GitHub
+repository, with the restrictions given by the regulatory graph preserved. The
+measurements were conducted on a personal laptop with processor \emph{Intel(R)
+Core(TM) i3-3110M CPU @ 2.40GHz} and 8 GB RAM. Below is shown a table of
+measured times, PBN model names, and their characteristics:
+\begin{itemize}
+    \item $|V|$: number of PBN's variables
+    \item $|R|$: number of regulations
+    \item $|P|$: parameter space size (as displayed in AEON)
+\end{itemize}
+
+\begin{tabular}[!ht]{@{}lcccrr@{}}
+    \toprule
+    Model name & $|V|$ & $|\BNRs{R}|$ & $|\paronset{P}|$ & strong
+        $\dset{D}$ & partition \\
+    \midrule
+    Cortical area development & 5 & 14 & $2^{40}$ & 00:00.67 & 04:29.22 \\
+    Asymmetric cell division A & 5 & 15 & $2^{48}$ & 00:01.48 & 17:13.99 \\
+    Mir 9 neurogenesis & 6 & 11 & $2^{22}$ & 00:00.04 & 00:00.07 \\
+    Trp biosynthesis & 6 & 13 & $2^{37}$ & 00:01.43 & 01:34.40 \\
+    P53 MDM2 network & 6 & 15 & $2^{45}$ & 00:02.27 & 37:28.90 \\
+    Drosophila gap D & 7 & 12 & $2^{30}$ & 00:00.46 & 00:19.28 \\
+    Asymmetric cell division B & 9 & 12 & $2^{24}$ & 00:00.01 & 00:00.04 \\
+    Cell cycle transcription & 9 & 19 & $2^{54}$ & 00:01.66 & - \\
+    Drosophila wings AP & 10 & 14 & $2^{34}$ & 00:00.64 & 00:23.40 \\
+    Root stem cell 2010 & 10 & 16 & $2^{44}$ & >2:30:00 & - \\
+    Mammalian cell cycle 2006 & 10 & 34 & $2^{43}$ & >2:30.00 & - \\
+    Toll pathway of Drosophila & 11 & 11 & $2^{24}$ & 00:00.03 & 00:00.08 \\
+    \bottomrule
+\end{tabular}
+
+\medskip
+
+We may conclude that our proposed method is suitable just for
+small networks. Doubling the parameter space size seems to have a greater impact
+than doubling the variable space size. For networks $|V| > 10$ and
+$|\paronset{P}| > 40$ the algorithm is intractable.
+
 \chapter{Conclusion}
 
+This work describes a method of computing individual-based mean-field
+approximation on partially specified Boolean networks. We build on the work of
+T.~Parmer~et~al.~\cite{infl_max_BN}, who have presented the algorithm for
+influence maximization in traditional Boolean networks, taking inspiration from
+studying spreading processes in network models -- a pandemic spreading, for
+example.
+
+The thesis begins by explaining the related theoretical concepts, Boolean
+networks, parametrized Boolean networks, controlling BNs, mean-field methods,
+and IBMFA. Then proposes a novel algorithm for computing IBMFA for PBNs and
+introduces the notion of a strong driver-set. We designed an algorithm for
+explaining the parametrization partitions via decision trees. In the end, we
+described tools implemented to analyze PBNs using IBMFA: one command line tool
+with more options and one graphical interactive tool that users can run in
+their browsers.
+
+\paragraph{Possible improvements}
+
+Analyzing the computation complexity for exemplary PBN models leads to the
+conclusion that the approach needs to scale better, mainly for the number of
+parametrizations, which grows fast. The tools could benefit from
+parallelization up to some point, but rather an innovative enhancement is
+necessary.
+
+Except for such a significant change, many minor improvements would improve the
+user experience. For example:
+\begin{itemize}
+\item Reduce the decision tree more. Currently, it is too branched; often, two
+    consecutive decision nodes have children leaves containing the same
+    driver-set.
+\item Show a progress bar in the web application during long server
+    computations.
+\item Users cannot ask to build the decision tree in the command line tool.
+\end{itemize}
+
+\hfil$\spadesuit$\hfil
 
 % TODO is this neccessary?
 %\makeatletter\thesis@blocks@clear\makeatother
