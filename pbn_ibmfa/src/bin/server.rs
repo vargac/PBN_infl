@@ -19,8 +19,11 @@ use clap::Parser;
 #[derive(Parser)]
 struct Cli {
     /// Port the server listens to.
-    #[arg(default_value_t = 5678)]
+    #[arg(short, long, default_value_t = 5678)]
     port: u16,
+    /// Address the server listens to.
+    #[arg(short, long, default_value_t = String::from("127.0.0.1"))]
+    addr: String,
 }
 
 const ITERATIONS: usize = 10;
@@ -280,7 +283,7 @@ fn session_loop<S: Stream>(
 
 fn main() {
     let args = Cli::parse();
-    let addr_port = format!("127.0.0.1:{}", args.port);
+    let addr_port = format!("{}:{}", args.addr, args.port);
     let mut server = Server::bind(&addr_port).unwrap();
 
     println!("Listening on {addr_port}");
