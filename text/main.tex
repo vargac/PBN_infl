@@ -17,19 +17,19 @@
     gender      = m,
     advisor     = {prof. RNDr. Luboš Brim, CSc.},
     title       = {%
-		Influence maximization in partially specified Boolean networks},
+		Influence Maximization in Partially Specified Boolean Networks},
     keywords    = {Boolean networks, mean-field, attractor, control},
     abstract    = {%
         Mean-field approximation methods are successfully used to analyze
         spreading processes in network models, with great utilization in
-        epidemic models. There have been attempts to adopt these methods for
+        epidemiology. There have been attempts to adopt these methods for
         Systems biology models, among others, for Boolean networks, to find the
-        most influential system components. Biology experiments often result in
+        most influential system components. Biologic experiments often result in
         some level of uncertainty for modeling. Partially specified Boolean
         networks formalize this uncertainty by introducing logical parameters
         to traditional Boolean networks. In this thesis, we target the problem
-        of extending the Individual-based mean-field approximation to work with
-        those logical parameters and develop a graphical tool for running the
+        of extending the individual-based mean-field approximation to work with
+        logical parameters and develop a graphical tool for running the
         method on partially specified Boolean networks.
     },
     thanks      = {%
@@ -151,7 +151,7 @@ back then as a scientific discipline of today and the main areas affected by
 Descartes' idea of reductionism were mathematics and physics, he also published
 his notion of non-human animals being complex automatons designed by a God. He
 claimed that such an automaton can be described in a reductionist and
-mechanistic way.~\cite{systems_bio_hist, de_homine}
+mechanistic way~\cite{systems_bio_hist, de_homine}.
 
 A change in this concept arose in the early part of the 20th century. An
 influential work by Norbert Wiener (1894--1964) asked for more system-level
@@ -169,24 +169,24 @@ contrast to each other, no opposition but reconciliation is needed. It is
 important to explore the smaller subsystems, tiny components, and how they
 function on their own (reductionism). However, it is not less important to look
 at the system from above to explore possible emergent features resulting from
-the interplay between components (holism).~\cite{systems_bio_hist}
+the interplay between components (holism)~\cite{systems_bio_hist}.
 
-A nice example is an aggregate motion of a flock of birds.
-Reynolds~\cite{reynolds_flock} published a computer simulation where each
-agent-bird behaves accordingly to a relatively simple set of rules. A
-reductionist scientist could explore these rules and understand the bird's sole
-behavior but could not find any evidence among the rules of the amazing
-phenomenon because it emerges from the interactions between the components
-(birds). A set of simple rules orchestrating the components emerged in the
-complex behavior of the whole system -- this is something central to a new
-approach in biology rising from holism: \emph{Systems biology}.
+A nice example is an aggregate motion of a flock of birds. Reynolds published
+a computer simulation where each agent-bird behaves accordingly to a relatively
+simple set of rules~\cite{reynolds_flock}. A reductionist scientist could
+explore these rules and understand the bird's sole behavior but could not find
+any evidence among the rules of the amazing phenomenon because it emerges from
+the interactions between the components (birds). A set of simple rules
+orchestrating the components emerged in the complex behavior of the whole
+system -- this is something central to a new approach in biology rising from
+holism: \emph{Systems biology}.
 
 To study even a small entity -- a cell -- from the system-wide perspective, one
 has to combine interactions of many components on different levels: genome,
 transcriptome, proteome, and metabolome space. Processing such a huge amount of
 information requires computational methods and software infrastructure,
-critical components for systems biology research.~\cite{kitano_overview,
-systems_bio_methods}
+critical components for Systems biology research~\cite{kitano_overview,
+systems_bio_methods}.
 
 \paragraph{Boolean networks}
 
@@ -196,34 +196,35 @@ qualitative or quantitative. An example of a qualitative model is a set of ODE
 processes in the system. Experimental inference of all the kinetic parameters
 is usually a complex task. At this place, systems biology benefits from
 qualitative models. This work targets one concrete: \emph{Boolean networks}
-(BN). BN is a simple model introduced by Stuart Kauffman in 1969 for genetic
-regulatory networks (GRN), consisting of simple boolean variables for
-components of the GRN (proteins, genes, and metabolites) and discrete relations
-between them.  Each variable represents the component being active or not. If
-the component is a gene, then the variable represents whether the gene is
-transcribed or not. In the case of metabolites or proteins, it may represent
-whether the amount of metabolite or protein is sufficient for some reaction.
-Boolean functions define the relations between the
-variables.~\cite{concepts_bn} Even after such a modeling reduction from the
-real-world living system, BNs still may illustrate various processes such as
-heart development~\cite{heart_development} and aging of organisms~\cite{aging}.
+(BNs)~\cite{concepts_bn}. BN is a simple model introduced by Stuart Kauffman in
+1969 for genetic regulatory networks (GRN), consisting of simple boolean
+variables for components of the GRN (proteins, genes, and metabolites) and
+discrete relations between them.  Each variable represents the component being
+active or not. If the component is a gene, then the variable represents whether
+the gene is transcribed or not. In the case of metabolites or proteins, it may
+represent whether the amount of metabolite or protein is sufficient for some
+reaction.  Boolean functions define the relations between the variables. Even
+after such a modeling reduction from the real-world living system, BNs still
+may illustrate various processes such as heart
+development~\cite{heart_development} and aging of organisms~\cite{aging}.
 
-BNs play an important role in systems biology, but it is often hard to infer
+BNs play an important role in Systems biology, but it is often hard to infer
 the boolean functions controlling the system. A knowledge that some protein
 \(a\) and \(b\) activate another protein \(c\) is insufficient because both
 boolean functions \(a \land b\) and \(a \lor b\) are consistent with the
 knowledge. This uncertainty may be expressed in a \emph{partially defined
-boolean network} (also \emph{parametrized boolean networks}), a more general version of BN.
+Boolean network} (also \emph{parametrized Boolean networks}), a more general
+version of BN.
 
 \paragraph{Attractors and control}
 
 One crucial question about any system is: \enquote{How will the system look
 after a long time? Will it settle and not change anymore?} The state the system
 will eventually evolve into and never leave is called an \emph{attractor}. Such
-a state does not have to be single; an attractor may also consist of multiple
+a state does not have to be single; an attractor may also consists of multiple
 states. In that case, the system switches among the states and visits each
-infinitely often, but again, only those states in the attractor, no others.. In
-the context of systems biology, an attractor is called a \emph{phenotype} as
+infinitely often, but again, only those states in the attractor, no others. In
+the context of Systems biology, an attractor is called a \emph{phenotype} as
 well.
 
 Finding a control strategy that drives the system to a desired attractor is
@@ -231,9 +232,9 @@ beneficial for many applications, for example, identifying key therapeutic
 targets for controlling pathways of regulatory and signaling networks,
 providing a basis for designing \emph{in vitro} cell reprogramming experiments,
 and many more~\cite{control_psbn}. It is known that this problem is
-\(\mathcal{NP}\)-hard in general for boolean networks, but effective
+\(\mathcal{NP}\)-hard in general for Boolean networks, but effective
 approximations exist ranging from linear to cubic time
-complexities~\cite{control_akutsu}. Last year, T.~Parmer et~al. presented an
+complexities~\cite{control_akutsu}. In 2022, T.~Parmer et~al. presented an
 article~\cite{infl_max_BN} with a novel approximation approach based on a
 well-studied problem of \emph{influence maximization} for spreading processes
 in social networks.
@@ -244,10 +245,18 @@ The last cited article about influence maximization became a stimulus for this
 thesis. T.~Parmer later published
 \cite{parmer_dynamical}~and~\cite{parmer_phd}, elaborating more on influence
 and control in network-based models. However, to the best of our knowledge, no
-attempt to generalize to parametrized boolean networks has been published yet.
+attempt to generalize to parametrized Boolean networks has been published yet.
 Thus, in this work, we aim to adjust their idea to work with PBNs, benchmark on
 a suitable set of networks, and design a simple, user-friendly GUI to analyze
 models of the user's choice.
+
+\paragraph{Structure of the thesis}
+
+In the next chapter, we explain the theoretical concepts related to our work.
+At the end of the chapter, we define precisely our goals. Chapter 3 presents
+algorithmic solutions to accomplish the goals, followed by a chapter about the
+actual implementation. We conclude the thesis by benchmarking the performance
+and a remark about possible improvements.
 
 
 \chapter{Preliminaries}
@@ -255,26 +264,26 @@ models of the user's choice.
 This chapter provides theoretical background related to our work, all the
 definitions with examples to facilitate understanding, and the final problem
 formulation. For a more in-depth description, we refer a reader to other
-articles: for boolean networks~\cite{concepts_bn}, for parametrized
+articles: for Boolean networks~\cite{concepts_bn}, for parametrized
 BNs~\cite{kadlecaj_thesis}, and finally for controlling BNs~\cite{infl_max_BN}.
 The definitions and notions in our work are adopted from those articles.
 
 \section{Boolean network}
 
-The introduction chapter presented boolean networks in an informal, intuitive
+The introductory chapter presented Boolean networks in an informal, intuitive
 way. Now, we show a solid mathematical definition here.
 
 \begin{ldefinition} \label{def:BN}
-A \emph{boolean network} is a 3-tuple $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$,
+A \emph{Boolean network} is a 3-tuple $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$,
 where:
 \begin{description}
 \item[$V = \{a, b, c, \ldots \}$] stands for a finite set of
     \emph{boolean variables}, which take on values from $\set{0, 1}$.
-\item[$\BNRs{R} \subseteq V^2$] is a set of regulations $(a, b)$. We write
+\item[$\BNRs{R} \subseteq V^2$] is a set of regulations $(a, b)$. We say
     that the variable $a$ \emph{regulates} the variable $b$, meaning $a$
     appears in the update function for $b$. \emph{Context} of a variable
-    $a$ is a set of its regulators
-    \[C_{\BN{B}}(a) = \set{b \mid (b, a) \in \BNRs{R}}\]
+    $b$ is a set of its regulators
+    \[C_{\BN{B}}(b) = \set{a \mid (a, b) \in \BNRs{R}}\]
     We write just $C(a)$ instead of $C_{\BN{B}}(a)$, when it is unambiguous.
 \item[$\BNUFs{F}$] is a total mapping from $V$ to a set of
     \emph{update functions}. An update function for variable $v \in V$ is
@@ -289,7 +298,7 @@ where:
 
 \begin{lexample} \label{example:BN}
 In this example we illustrate the previous definition for a simple 3-variable
-boolean network depicted in figure~\ref{fig:bn}.
+Boolean network depicted in figure~\ref{fig:bn}.
 \begin{figure}[!ht]
 \centering
 \begin{tikzpicture}[node distance={4.5em}, thick, main/.style = {draw, circle}] 
@@ -307,7 +316,7 @@ boolean network depicted in figure~\ref{fig:bn}.
     \draw[relative, green, ->] (c) to [out=15, in=165, looseness=1] (a);
     \draw[relative, red, -|] (c) to [out=15, in=165, looseness=1] (b);
 \end{tikzpicture}
-\caption[An example of a BN]{An example of a regulatory graph of a boolean
+\caption[An example of a BN]{An example of a regulatory graph of a Boolean
 network. The directed graph is given by the variables and the regulations of
 the BN. Here, the edges are moreover colored according to the effect in the
 corresponding update function.\label{fig:bn}}
@@ -377,14 +386,14 @@ Then, the system evolves and changes its \emph{state} over time according to the
 interaction rules -- update functions.
 
 \begin{ldefinition}
-A \emph{state} of a boolean network $\BN{B}$ with variables $V$ is a
+A \emph{state} of a Boolean network $\BN{B}$ with variables $V$ is a
 (total) valuation $\nu : V \to \set{0, 1}$.
 \end{ldefinition}
 
-\subsection{Dynamic behavior of boolean networks}
+\subsection{Dynamic behavior of Boolean networks}
 
-A BN update functions together with \emph{semantics} specifies possible
-transitions between states. BN semantics is an \emph{updating policy} for
+BN update functions together with \emph{semantics} specifies possible
+transitions between states. A BN semantics is an \emph{updating policy} for
 applying the update functions to a BN's state. There is a wide space for such
 policies: the two most common, \emph{synchronous} and \emph{asynchronous}, but
 others more sophisticated, synchronous block-sequential, stochastic
@@ -394,24 +403,23 @@ function is used at a time. It was thought that the latter represents
 biological systems better, as the components in a living system usually have
 concurrent dynamics. Conversely, synchronous updating policy leads to fewer
 transitions, and some discussion revealed that it might be more appropriate for
-robustness analysis~\cite{concepts_bn}. We made a choice for synchronous
-semantics mainly because of the stimulating paper of T.~Parmer~et~al., where
-the authors aimed for that policy the most~\cite{infl_max_BN}.
+robustness analysis~\cite{concepts_bn}. T.~Parmer~et~al. in their stimulating
+paper focused the most on synchronous semantics~\cite{infl_max_BN}.
 
 \begin{lexample}
 Continuing with the BN from example~\ref{example:BN}, we compare the two most
 frequent semantics regarding state $\state{110}$. We write triplet
 $\state{110}$ instead of more complex, formal valuation $\set{(a, \state{1}),
-(b, \state{1}), (c, \state{0})}$. Asynchronous semantics have two possible
+(b, \state{1}), (c, \state{0})}$. Asynchronous semantics has two possible
 consequent states: $\state{010}$ (after application of $\BNUFs{F}_a$) and
 $\state{111}$ ($\BNUFs{F}_c$).  Synchronous semantics have only one:
 $\state{011}$.
 \end{lexample}
 
-After intuitively describing what semantics is, we provide a definition of
+After intuitively describing what a semantics is, we provide a definition of
 synchronous semantics here:
 \begin{ldefinition}
-A boolean network $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ can transition from a
+A Boolean network $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ can transition from a
 state $\nu_{\text{fr}}$ to a state $\nu_{\text{to}}$ in \emph{synchronous
 semantics} if and only if:
 \[
@@ -429,15 +437,12 @@ $\nu_{\text{fr}} \BNt{B} \nu_{\text{to}}$ interchangeably.
 A transitive closure of $\BNt{B}$ is denoted $\BNt{B}^* = \BNtc{B}$.
 \end{ldefinition}
 
-The dynamics of a boolean network can be interpreted as a directed
-graph\footnote{\url{https://en.wikipedia.org/wiki/Directed_graph}}, where the
-vertices correspond to the states of a BN, and the arcs correspond to the
+The dynamics of a Boolean network can be interpreted as a directed graph, where
+the vertices correspond to the states of a BN, and the arcs correspond to the
 feasible transitions for a given semantics. The number of vertices is
 exponential ($2^{|V|}$) with respect to the number of BN variables because each
 variable may (independently) take on two values from~$\set{0, 1}$. There is
-always just one outgoing arc from any node for synchronous semantics. From now
-on, we consider only synchronous update policy, except we mention the semantics
-explicitly.
+always just one outgoing arc from any node for synchronous semantics.
 
 \begin{ldefinition}
 A \emph{state transition graph} (STG) of a BN $\BN{B} = (V, \BNRs{R},
@@ -485,14 +490,13 @@ state $\state{001}$ in the long term. We call them \emph{attractors}, with the
 latter having a larger \emph{basin}.
 
 \begin{ldefinition}
-An \emph{attractor} of a boolean network $\BN{B}$ is a maximal (finite) set
+An \emph{attractor} of a Boolean network $\BN{B}$ is a maximal (finite) set
 of states $\attr{A} = \set{\nu_i}_{i=1}^k$ such that:
 \[ \forall_{\nu_1, \nu_2 \in \attr{A}} : \nu_1 \BNtc{B} \nu_2 \]
 
 A \emph{basin} of attractor $\attr{A}$ is a (finite) set of all states $\nu$
 such that:
 \[ \exists_{\nu^{'} \in \attr{A}} : \nu \BNtc{B} \nu^{'} \]
-We slightly abuse the notation and write just $\nu \BNtc{B} \attr{A}$.
 \end{ldefinition}
 
 \begin{lexample}
@@ -516,19 +520,21 @@ the data and simulation of Novak and Tyson~\cite{novak}. But the synchronous
 approach prohibits further refined analysis of the transitions in the cyclic
 attractor.
 
-For asynchronous update policy, the categorization is more complex, rising from the fact that the STG contains more edges. Still, the fixed-point attractors coincide with the ones for synchronous policy~\cite{attractors}.
+For asynchronous update policy, the categorization is more complex, rising from
+the fact that the STG contains more edges. Still, the fixed-point attractors
+coincide with the ones for synchronous policy~\cite{attractors}.
 
 Although T.~Parmer~et~al.~\cite{infl_max_BN} have tried various update
 policies, the synchronous one was used to obtain the results presented in their
-article that we build on.  It seems to be the most straightforward as well, in
-connection to the approximation algorithm they presented. We elaborate more on
-this in the next chapter. The article also states that their method, as it is
+article that we build on. It seems to be the most straightforward as well, in
+connection to the approximation algorithm they presented. The article also
+states that their method, as it is
 currently designed, is not usable for cyclic attractors:
-\blockquote[T.~Parmer~et~al.~\cite{infl_max_BN}]{Finally, as it is currently
-formulated, our method is useful for the study of fixed points only but not
-of limit cycles. The method can be generalized to the study of these more
-complicated attractors, but only via a non-trivial generalization of our
-currently proposed metric of dynamical influence.}
+\blockquote{Finally, as it is currently formulated, our method is useful for
+the study of fixed points only but not of limit cycles. The method can be
+generalized to the study of these more complicated attractors, but only via a
+non-trivial generalization of our currently proposed metric of dynamical
+influence.}
 
 To put it together:
 \begin{itemize}
@@ -543,9 +549,9 @@ To put it together:
 Thus we have chosen to focus only on fixed-point attractors and synchronous
 semantics.
 
-\subsection{Control of boolean networks}
+\subsection{Control of Boolean networks}
 
-To ensure that a boolean network reaches a specific, wanted attractor, one has
+To ensure that a Boolean network reaches a specific, wanted attractor, one has
 to interfere with the system if its state transition graph contains multiple
 attractors. Such interference is called \emph{perturbation} or \emph{control}.
 Two kinds of perturbations exist: state perturbations and update function
@@ -574,9 +580,7 @@ $\state{001}$ without any other perturbation because $\state{110}$ lies
 in the basin of attraction for $\state{001}$.
 \end{lexample}
 
-In our thesis, we are interested in permanent control. It is the most intrusive
-and unrealistic one, as it requires forever adding or extracting the
-corresponding substance. But, again, the choice has been made regarding the
+In our thesis, we are interested in permanent control because of the
 article~\cite{infl_max_BN} we build on, where the authors work with permanent
 perturbations. The control is given by a \emph{driver-set} that drives the
 system toward a specific attractor.
@@ -584,14 +588,15 @@ system toward a specific attractor.
 \begin{ldefinition}
 A \emph{driver-set} $\dset{D}$ for a BN $\BN{B}$ with variables $V$ is a
 restriction of (total) valuation $V \to \set{0, 1}$. After application of
-$\dset{D}$, the state transition graph $\stg(B)$ is transformed subsequently:
+$\dset{D}$, the state transition graph $\stg(B)$ is transformed subsequently
+($\dom{f}$ denotes a domain of a function $f$.):
 \begin{itemize}
     \item Its vertices are reduced to $V' = \set{\nu \mid \dset{D} \text{ is
-        a restriction of } \nu}$. We remind that a function $f$ is a
+        a restriction of } \nu}$\footnote{A function $f$ is a
         restriction of $g$, when:
         \[
         \dom{f} \subseteq \dom{g} \land \forall_{x \in \dom{f}} : f(x) = g(x)
-        \]
+        \]}.
     \item The edges starting not from $V'$ are removed.
         Each remaining edge $(\nu_{\text{fr}}, \nu_{\text{to}})$ is
         substituted by an edge $(\nu_{\text{fr}}, \nu_{\text{to}}')$,
@@ -603,7 +608,7 @@ $\dset{D}$, the state transition graph $\stg(B)$ is transformed subsequently:
                 \nu_{\text{to}}(v) & \text{else}.
             \end{cases}
         \]
-        for all $v \in V$. ($\dom{f}$ denotes a domain of a function $f$.)
+        for all $v \in V$.
 \end{itemize}
 
 $\dset{D}$ can be interpreted also as a set of $\BN{B}$'s variable
@@ -702,21 +707,20 @@ effects\footnote{A good explanatory (although not practical) example is a
 But they are not used only in physics. Approximations using mean-field methods
 have been extensively adopted for studying spreading processes on networks,
 specifically to address the problem of epidemics~\cite{pastor_epidemic,
-yang_epidemic}. The simple SIS
-model\footnote{\url{https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology}}
-has two possible types of individuals (also called \emph{compartments}):
-Susceptible and Infectious. One can make use of mean-field approximation
-provided the population is modeled as infinite and well-mixed.  Then just the
-densities of compartments are considered, leading to simple differential
-equations. However, the assumption of random interactions among an infinite
-number of individuals is only a little applicable to real-world situations.
-Therefore, the network models are commonly used, where each individual
-interacts with several neighbors. But the network model makes the prediction
-computationally harder because a pandemic spreading in a population of size $n$
-can be described using a \emph{Markov process} of $n$ random variables $X_i$.
-This leads to an exponential number of equations, as $2^n$ possible network
-configurations $X = (X_1, X_2, \ldots, X_n)$ exist. Commonly, two methods of
-mean-field approximations are used to cope with this exponential explosion:
+yang_epidemic}. The simple SIS model~\cite{sis} has two possible types of
+individuals (also called \emph{compartments}): Susceptible and Infectious. One
+can make use of mean-field approximation provided the population is modeled as
+infinite and well-mixed.  Then just the densities of compartments are
+considered, leading to simple differential equations. However, the assumption
+of random interactions among an infinite number of individuals is only a little
+applicable to real-world situations.  Therefore, the network models are
+commonly used, where each individual interacts with several neighbors. But the
+network model makes the prediction computationally harder because a pandemic
+spreading in a population of size $n$ can be described using a \emph{Markov
+process} of $n$ random variables $X_i$.  This leads to an exponential number of
+equations, as $2^n$ possible network configurations $X = (X_1, X_2, \ldots,
+X_n)$ exist. Commonly, two methods of mean-field approximations are used to
+cope with this exponential explosion:
 
 \begin{description}
     \item[Individual-based] Assumes statistical independence of any two
@@ -737,11 +741,11 @@ mean-field approximations are used to cope with this exponential explosion:
         a given state at time $t$.
 \end{description}
 
-\subsection{Individual-based mean-field approximation for boolean networks}
+\subsection{Individual-based mean-field approximation for Boolean networks}
 \label{section:IBMFA}
 
 T.~Parmer~et~al.~\cite{infl_max_BN} presented a novel approach to
-individual-based mean-field approximation (IBMFA) applicable to a boolean
+individual-based mean-field approximation (IBMFA) applicable to a Boolean
 network analogic to IBMFA used for pandemic-spreading processes in network
 models. The published approximation algorithm aims to estimate the average
 dynamics of the system. The brute-force solution would be to consider all
@@ -775,16 +779,17 @@ The dynamics is approximated in the following way:
 \end{equation}
 \end{ldefinition}
 
-Now, we assess the time complexity of computing the average dynamics exactly
-as opposed to the defined IBMFA:
+The formula sums state probabilities of every state satisfying the update
+function of $v$. Now, we assess the time complexity of computing the average
+dynamics exactly as opposed to the defined IBMFA:
 \begin{description}
     \item[Exact simulation] There are $2^{|V|}$ initial configurations to
         average over. One simulation from the starting configuration
         takes $T$ time-steps.
-        Updating the BN's state by one time step during a simulation takes
-        in the worst case $|V|^2$ time (updating $V$ variables, each one may
-        depend on the previous states of all $V$ variables). Thus the time
-        complexity is bounded by $\mathcal{O}(2^{|V|} \cdot T)$.
+        Updating the BN's state by one time step during a simulation takes in
+        the worst case $\mathcal{O}(|V|^2)$ time (updating $V$ variables, each
+        one may depend on the previous states of all $V$ variables). Thus the
+        time complexity is bounded by $\mathcal{O}(2^{|V|} \cdot T)$.
     \item[IBMFA] According to the work of T.~Parmer~\cite{infl_max_BN},
         one step of the IBMFA simulation runs in time linear with respect to
         $|V|$ (as every variable gets recomputed) and exponential with respect
@@ -827,7 +832,7 @@ ignored the attractor $\state{010}$.
     \includegraphics[width=\columnwidth]{example_ibmfa.png}
 \end{subfigure}
 \caption{Simulation of exact (upper) and IBMFA (bottom) average dynamics
-    of BN~\ref{example:BN}}.
+    of a BN from~\ref{example:BN}}.
 \label{fig:simulations}
 \end{figure}
 \end{lexample}
@@ -879,7 +884,7 @@ $\dset{D} \in \dsetsp_{\BN{B}}$. Then, the IBMFA simulation for BN is defined:
     \centering
     \includegraphics[width=\linewidth]{example_b1.png}
 \end{subfigure}
-\caption{A state transition graph and IBMFA simulation of boolean network from
+\caption{A state transition graph and IBMFA simulation of Boolean network from
     example~\ref{example:BN} for driver-set $\dset{D} = \set{(b, 1)}$.  To
     compare with the dynamics without a driver-set, look at the STG in
     figure~\ref{fig:STG} and simulations in figure~\ref{fig:simulations}. With
@@ -927,9 +932,9 @@ The pseudocode is shown in Algorithm~\ref{algo:greedy}; a less formal
 description follows here. The set of fixes $F$ consistent with the driver set
 is prepared at the start. Then, in a loop, one fix is chosen in a greedy
 fashion for each iteration to minimize the entropy of the final configuration
-in IBMFA. After reaching zero entropy, the driver-set is done. Then, the next
-procedure follows -- reducing the driver-set -- to eliminate unnecessary fixes
-because the greedy search may build too big a driver-set.
+in IBMFA. After reaching zero entropy, the driver-set is finalized. Then, the
+next procedure follows -- reducing the driver-set -- to eliminate unnecessary
+fixes because the greedy search may build too big a driver-set.
 
 \begin{algorithm}[!ht]
 \caption{Greedy search for a driver-set}\label{algo:greedy}
@@ -981,22 +986,22 @@ found, and for each variable, the IBMFA simulation gets computed, which takes
 time linear to $|V|$.
 
 
-\section{Parametrized boolean networks}
+\section{Parametrized Boolean networks}
 
 Estimating the BN's update functions from wet laboratory experiments is often
 challenging. It is feasible to generalize the BN concept to work with limited
 knowledge about the living system. For example, an inference of an inhibiting
 effect of two molecules on the occurrence of another component is insufficient.
-The boolean network formalism still requires choosing whether both molecules
+The Boolean network formalism still requires choosing whether both molecules
 together have this effect ($\land$) or if any of them is enough ($\lor$).
 However, it would be nice to use at least the knowledge about inhibiting that
-we have. A generalization of a BN model to a \emph{parametrized boolean
-network}\footnote{The two terms \enquote{partially defined boolean network} and
-\enquote{parametrized boolean network} coincide. In the text, we use the later
+we have. A generalization of a BN model to a \emph{parametrized Boolean
+network}\footnote{The two terms \enquote{partially defined Boolean network} and
+\enquote{parametrized Boolean network} coincide. In the text, we use the later
 one, which is shorter.} allows it.
 
 \begin{ldefinition}
-A \emph{parametrized boolean network} (PBN) is a 5-tuple
+A \emph{parametrized Boolean network} (PBN) is a 5-tuple
 $\PBN{B} = (V, \BNRs{R}, F, \paronset{P}, \PBNUFs{F})$, where:
 \begin{description}
     \item $V$ is a set of \emph{boolean variables}.
@@ -1035,17 +1040,17 @@ parametrization $\paron{P} \in \paronset{P}$:
     \item $\PBNUFs{F}[\paron{P}]$ is equal to $\set{
         \PBNUFs{F}_v\left[\paron{P}\right] \mid v \in V }$.
     \item $\PBN{B}[\paron{P}]$ is an instantiation of a PBN
-        $\PBN{B}$ in the parametrization $\paron{P}$. The result is a boolean
+        $\PBN{B}$ in the parametrization $\paron{P}$. The result is a Boolean
         network $\left(V, \BNRs{R}, \PBNUFs{F}\left[\paron{P}\right]\right)$.
 \end{description}
 
 \begin{lexample} \label{example:PBN}
 This example illustrates the definition of a PBN by transforming the BN
 $\BN{B} = (V, \BNRs{R}, \BNUFs{F})$ from Example~\ref{example:BN} into
-a parametrized boolean network $\PBN{B} = (V, \BNRs{R}, F, \paronset{P},
-\PBNUFs{F})$. We preserve the activating/inhibiting character of regulations
-depicted in Figure~\ref{fig:bn} and parametrize the update function for $b$.
-We define:
+a parametrized Boolean network $\PBN{B} = (V, \BNRs{R}, F, \paronset{P},
+\PBNUFs{F})$. We preserve the activating and inhibiting characters of
+regulations depicted in Figure~\ref{fig:bn} and parametrize the update function
+for $b$.  We define:
 \begin{align*}
     F & = \set{\unf{f}^2} \\
     \paronset{P} & = \set{\paron{P}_1, \paron{P}_2} \\
@@ -1095,7 +1100,7 @@ and for $\PBN{B}[\paron{P}_2]$ in Figure~\ref{fig:STG2}.
 
 \section{Problem formulation}
 In this thesis, we target the problem of finding driver-sets via IBMFA in
-parametrized boolean networks. We aim at the following:
+parametrized Boolean networks. We aim at the following:
 \begin{enumerate}
     \item Given a PBN $\PBN{B}$, find an (approximate) minimal driver-set
         $\dset{D} \in \dsetsp_{\PBN{B}}$ such that $\dset{D}$ drives the
@@ -1111,7 +1116,7 @@ parametrized boolean networks. We aim at the following:
         attractor.
     \item Implement user-friendly tools for running IBMFA for PBNs and the two
         analyses above.
-    \item Benchmark our solution on a suitable set of parametrized boolean
+    \item Benchmark our solution on a suitable set of parametrized Boolean
         networks.
 \end{enumerate}
 
@@ -1275,9 +1280,9 @@ manner iterating over each parametrization $\paron{P} \in
 \attrf(\attr{A})$ and finding a driver-set by
 Algorithm~\ref{algo:greedy}. We assign the corresponding driver-set to each
 $\paronset{P}_i$. Then the result is represented as a mapping $\dsetfmacro{A}:
-\dsetsp \to \pset{\attrf(\attr{A})}$. $\pset{X}$ denotes a power set (set of
-all subsets) of $X$. By $\cnt{\dsetfmacro{A}}$ we denote total number of mapped
-parametrizations $\sum_{\paronset{P} \in \im(\dsetfmacro{A})} |\paronset{P}|$.
+\dsetsp \to \pset{\attrf(\attr{A})}$. $\pset{X}$ denotes the power set of $X$.
+By $\cnt{\dsetfmacro{A}}$ we denote total number of mapped parametrizations
+$\sum_{\paronset{P} \in \im(\dsetfmacro{A})} |\paronset{P}|$.
 
 This method does not scale well as the number of
 parametrizations grows super-exponentially with respect to the number of
@@ -1454,7 +1459,7 @@ where $\paronset{P}' = \set{\paron{P}' \mid \paron{P} \in \paronset{P}}$ and
 \[
     \paron{P}'(\unf{f}^n) =
         \begin{cases}
-            \paron{P}(\unf{f}^n &
+            \paron{P}(\unf{f}^n) &
                 \text{if } \unf{f}^n \text{ is used in } \PBNUFs{F}_v,\\
             (a_1, \ldots, a_n) \mapsto 0 & \text{else}.
         \end{cases}
@@ -1495,8 +1500,8 @@ The base of our implementation is a Rust library, simply named
 Rust\footnote{\url{https://www.rust-lang.org/}} as a programming language
 mainly because of the useful available libraries \texttt{biodivine-lib-bdd}
 used for creating and manipulating BDDs and \texttt{biodivine-lib-param-bn},
-which implements a parametrized boolean network representation by BDDs. It
-supports us with loading the model files, making all the BDDs, and computing
+which implements a parametrized Boolean network representation by BDDs. It
+enables loading the model files, making all the BDDs, and computing
 the restrictions $\paronset{P}$ for them. Further processing is the
 responsibility of our library, \texttt{pbn\_ibmfa}. It consists of several
 modules:
@@ -1524,7 +1529,7 @@ one command line and one graphical.
 
 \section{Command line tool \texttt{pbn\_ibmfa}}
 
-The purpose of this command line utility is to run the computations we have presented in our thesis. It takes as input a path to a boolean network file in the \texttt{.aeon} format\footnote{\url{https://biodivine.fi.muni.cz/aeon/}} and prints results of user-selected computations in JSON\footnote{\url{https://www.json.org/json-en.html}} format to standard output. \texttt{pbn\_ibmfa} accepts an argument for producing a JSON with nice spacings and indentations (instead of the default, where the JSON elements are printed in one big chunk of characters). A user may also set the number of iterations used in the IBMFA computing. \texttt{pbn\_ibmfa} takes two subcommands:
+The purpose of this command line utility is to run the computations we have presented in our thesis. It takes as input a path to a Boolean network file in the \texttt{.aeon} format\footnote{\url{https://biodivine.fi.muni.cz/aeon/}} and prints results of user-selected computations in JSON\footnote{\url{https://www.json.org/json-en.html}} format to standard output. \texttt{pbn\_ibmfa} accepts an argument for producing a JSON with nice spacings and indentations (instead of the default, where the JSON elements are printed in one big chunk of characters). A user may also set the number of iterations used in the IBMFA computing. \texttt{pbn\_ibmfa} takes two subcommands:
 \begin{description}
 \item[Simulation] The output is a time series of BN's probabilistic
     configurations. Users may choose between IBMFA and exact (brute-force)
@@ -1559,9 +1564,7 @@ command line arguments to listen on a different port number and address. After
 successful initialization, the server reports it listens on a given address and
 port. Then, the server reports an (eventually) successful connection and what
 communication with the client is going on (for an ordinary user, that
-information is not much important). For reasonably sized models, it is possible
-to run the server on a personal computer (we elaborate more on this in the
-chapter~\ref{section:results}).
+information is not much important).
 
 \paragraph{Front-end}
 
@@ -1669,19 +1672,19 @@ $|\paronset{P}| > 40$ the algorithm is intractable.
 \chapter{Conclusion}
 
 This work describes a method of computing individual-based mean-field
-approximation on partially specified Boolean networks. We build on the work of
-T.~Parmer~et~al.~\cite{infl_max_BN}, who have presented the algorithm for
-influence maximization in traditional Boolean networks, taking inspiration from
-studying spreading processes in network models -- a pandemic spreading, for
-example.
+approximation on partially specified Boolean networks. We have built on the
+work of T.~Parmer~et~al.~\cite{infl_max_BN}, who have presented the algorithm
+for influence maximization in traditional Boolean networks, taking inspiration
+from studying spreading processes in network models -- a pandemic spreading,
+for example.
 
-The thesis begins by explaining the related theoretical concepts, Boolean
-networks, parametrized Boolean networks, controlling BNs, mean-field methods,
-and IBMFA. Then proposes a novel algorithm for computing IBMFA for PBNs and
-introduces the notion of a strong driver-set. We designed an algorithm for
-explaining the parametrization partitions via decision trees. In the end, we
-described tools implemented to analyze PBNs using IBMFA: one command line tool
-with more options and one graphical interactive tool that users can run in
+After explaining the related theoretical concepts: Boolean networks,
+parametrized Boolean networks, controlling BNs, mean-field methods, and IBMFA;
+we proposed and implemeted a novel algorithm for computing IBMFA for PBNs and
+introduced the notion of a strong driver-set. We have also designed an
+algorithm for explaining the parametrization partitions via decision trees.
+Finally, we presented the interface to the implemeted tools: one command line
+tool with more options and one graphical interactive tool that users can run in
 their browsers.
 
 \paragraph{Possible improvements}
@@ -1702,8 +1705,6 @@ user experience. For example:
     computations.
 \item Users cannot ask to build the decision tree in the command line tool.
 \end{itemize}
-
-\hfil$\spadesuit$\hfil
 
 % TODO is this neccessary?
 %\makeatletter\thesis@blocks@clear\makeatother
