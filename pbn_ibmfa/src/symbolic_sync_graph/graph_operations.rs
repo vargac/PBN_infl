@@ -4,6 +4,7 @@ use biodivine_lib_param_bn::{VariableId, symbolic_async_graph::
 use super::SymbSyncGraph;
 
 impl SymbSyncGraph {
+    /// Returns the succesors of `inital` in synchronuous semantics
     pub fn post_synch(&self, initial: &GraphColoredVertices)
     -> GraphColoredVertices {
         let output = initial.as_bdd() // (prev, ?)
@@ -14,6 +15,7 @@ impl SymbSyncGraph {
         GraphColoredVertices::new(output, &self.context)
     }
 
+    /// Returns the predecesors of `inital` in synchronuous semantics
     pub fn pre_synch(&self, initial: &GraphColoredVertices)
     -> GraphColoredVertices {
         let output = initial.as_bdd() // (next, ?)
@@ -24,19 +26,24 @@ impl SymbSyncGraph {
         GraphColoredVertices::new(output, &self.context)
     }
 
+    /// Returns all vertices and valid parametrizations
     pub fn unit_colored_vertices(&self) -> GraphColoredVertices {
         GraphColoredVertices::new(self.unit_bdd.clone(), &self.context)
     }
 
+    /// Returns empty vertices and parametrizations
     pub fn empty_colored_vertices(&self) -> GraphColoredVertices {
         GraphColoredVertices::new(
             self.context.mk_constant(false), &self.context)
     }
 
+    /// Returns valid parametrizations
     pub fn unit_colors(&self) -> GraphColors {
         GraphColors::new(self.unit_bdd.clone(), &self.context)
     }
 
+    /// Returns all vertices and valid parametrizations but with vertex
+    /// `variable` set to `value`.
     pub fn fix_network_variable(&self, variable: VariableId, value: bool)
     -> GraphColoredVertices {
         let bdd_var = self.context.get_state_variable(variable);

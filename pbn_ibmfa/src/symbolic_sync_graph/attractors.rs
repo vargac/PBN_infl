@@ -40,6 +40,11 @@ impl SymbSyncGraph {
         result
     }
 
+    /// Finds attractors (both fixed-point and cyclic).
+    ///
+    /// Typically should be postprocessed by `compute_attrs_map()` function.
+    ///
+    /// * `set` - Attractors are found only in this set.
     pub fn attractors_in(&self, set: &GraphColoredVertices)
     -> Vec<GraphColoredVertices> {
         let mut result = Vec::new();
@@ -52,10 +57,14 @@ impl SymbSyncGraph {
         result
     }
 
+    /// Finds all attractors (both fixed-point and cyclic).
     pub fn attractors(&self) -> Vec<GraphColoredVertices> {
         self.attractors_in(&self.unit_colored_vertices())
     }
 
+    /// Finds fixed-point attractors.
+    ///
+    /// * `set` - Attractors are found only in this set.
     pub fn fixed_point_attractors_in(&self, set: &GraphColoredVertices)
     -> Vec<GraphColoredVertices> {
         let attrs = set.copy(set.as_bdd()
@@ -69,12 +78,13 @@ impl SymbSyncGraph {
             .collect::<Vec<_>>()
     }
 
+    /// Finds all fixed-point attractors.
     pub fn fixed_point_attractors(&self) -> Vec<GraphColoredVertices> {
         self.fixed_point_attractors_in(&self.unit_colored_vertices())
     }
 }
 
-/// Postprocess after running SymbSyncGraph::attractors.
+/// Postprocess after running `SymbSyncGraph::attractors`.
 #[allow(dead_code)]
 pub fn compute_attrs_map(attrs: &[GraphColoredVertices])
 -> HashMap<GraphVertices, GraphColors> {

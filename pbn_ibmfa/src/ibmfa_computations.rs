@@ -6,16 +6,21 @@ use crate::symbolic_sync_graph::{SymbSyncGraph, VarIndex, PUpdateFunExplicit};
 use crate::driver_set::{PBNFix, UnitFix};
 
 
-pub fn entropy(probs: &[f32]) -> f32 {
-    probs.iter()
-        .map(|p| {
-            let p = p.clamp(0.0, 1.0);
-            if p == 0.0 || p == 1.0 { 0.0 }
-                 else { - p * p.log2() - (1.0 - p) * (1.0 - p).log2() }
-         })
-        .sum::<f32>() / probs.len() as f32
-}
-
+/// Computes the IBMFA for `sync_graph` fixed by `pbn_fix`.
+///
+/// Returns a tuple `(entropy, final_probabilities, last_iteration)`.
+///
+/// * `iterations` - Length of the simulation.
+/// * `early_stop` - Stops the computation after two iterations of zero entropy.
+/// * `explicit_pupdate_funs_opt` - Precomuted
+///     `sync_graph.explicit_pupdate_functions()`. Speeds up the computation
+///     when running more `ibmfa_entropy` still on the same network (the
+///     valid parametrizations are the same)
+/// * `step_callback_opt` - Called after every iteration, the parameter
+///     is the current probabilities.
+/// * `initial` - Initial configuration. By default deduced from fixed
+///     variables in `pbn_fix`, others are put to 0.5.
+/// * `verbose` - Print the probabilities after each step.
 pub fn ibmfa_entropy(
     sync_graph: &SymbSyncGraph,
     pbn_fix: &PBNFix,
@@ -69,8 +74,16 @@ pub fn ibmfa_entropy(
     (ent, probs, iterations)
 }
 
-// `pbn_fix` is `mut`, but after the function call it remains the same as
-// before.
+/// Finds the minimizing fix for `sync_graph`.
+///
+/// Returns the found fix, entropy, and the corresponding network configuration.
+///
+/// * `iterations` - Length of the simulation.
+/// * `pbn_fix` - Fix of the network. After the end of this function,
+///     it remains in the same state as before.
+/// * `available_fixes` - Find minimum of these.
+/// * `explicit_pupdate_funs_opt` - As in `ibmfa_entropy`.
+/// * `verbose` - Print entropies for fixes.
 pub fn minimize_entropy<'a>(
     sync_graph: &SymbSyncGraph,
     iterations: usize,
@@ -103,6 +116,21 @@ pub fn minimize_entropy<'a>(
             ord => ord,
         })
         .map(|(unit_fix, (_, ent), probs)| (unit_fix, ent, probs))
+}
+
+
+/********************
+ * Helper functions *
+ ********************/
+
+fn entropy(probs: &[f32]) -> f32 {
+    probs.iter()
+        .map(|p| {
+            let p = p.clamp(0.0, 1.0);
+            if p == 0.0 || p == 1.0 { 0.0 }
+                 else { - p * p.log2() - (1.0 - p) * (1.0 - p).log2() }
+         })
+        .sum::<f32>() / probs.len() as f32
 }
 
 fn clause_probability(

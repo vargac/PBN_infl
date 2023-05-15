@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use biodivine_lib_bdd::{Bdd, BddVariable, BddPartialValuation, BddValuation};
 use biodivine_lib_param_bn::{BooleanNetwork, FnUpdate,
     symbolic_async_graph::{SymbolicContext, GraphVertices}};
@@ -7,18 +5,10 @@ use biodivine_lib_param_bn::{BooleanNetwork, FnUpdate,
 use crate::symbolic_sync_graph::SymbSyncGraph;
 
 
-pub fn attr_from_str(attr_str: &[&str], sync_graph: &SymbSyncGraph)
--> GraphVertices {
-    let attr_vertex_ids = attr_str.iter()
-        .map(|name| sync_graph.as_network().as_graph()
-            .find_variable(name).unwrap())
-        .collect::<HashSet<_>>();
-    sync_graph.as_network().variables()
-        .map(|var_id| (var_id, attr_vertex_ids.contains(&var_id)))
-        .fold(sync_graph.unit_colored_vertices().vertices(),
-            |acc, (var_id, val)| acc.fix_network_variable(var_id, val))
-}
-
+/// Adds self-regulation to input variables of `model`
+/// without an update function.
+///
+/// Thus we can fix them as vertices and not as parametrizations.
 pub fn add_self_regulations(mut model: BooleanNetwork) -> BooleanNetwork {
     for variable in model.variables() {
         if model.regulators(variable).is_empty()
@@ -33,13 +23,8 @@ pub fn add_self_regulations(mut model: BooleanNetwork) -> BooleanNetwork {
     model
 }
 
-pub fn bdd_pick_unsupported(bdd: Bdd, variables: &[BddVariable]) -> Bdd {
-    let support_set = bdd.support_set();
-    variables.iter()
-        .filter(|bdd_var| !support_set.contains(bdd_var))
-        .fold(bdd, |acc, bdd_var| acc.var_pick(*bdd_var))
-}
-
+/** A number of functions used for printing follows. They convert a type
+ * from the biodivine-lib-bdd or biodivine-lib-param-bn to `String`. */
 
 pub fn bdd_to_str(bdd: &Bdd, context: &SymbolicContext) -> String {
     format!("{}", bdd.to_boolean_expression(context.bdd_variable_set()))
@@ -90,6 +75,7 @@ pub fn vertices_to_str(vertices: &GraphVertices, context: &SymbolicContext)
         .collect::<String>())
 }
 
+/// Prints the parametrized update functions for `sync_graph`.
 pub fn print_update_functions(sync_graph: &SymbSyncGraph) {
     for pupdate_function in sync_graph.get_pupdate_functions() {
         let parametrizations = pupdate_function.get_parametrizations();
@@ -118,6 +104,10 @@ pub fn print_update_functions(sync_graph: &SymbSyncGraph) {
     }
 }
 
+/// Returns a `Vec` of variations with replacement
+///
+/// * `values` - Values to choose from. One value may be chosen multiple times.
+/// * `num` - The number of values to build one variation.
 pub fn variations_with_replacement<T: Default + Clone>(
     values: &[T],
     num: usize

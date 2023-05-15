@@ -12,6 +12,7 @@ mod regulation_constraints;
 mod graph_operations;
 
 
+/// Parametrized update function.
 #[derive(Clone, Debug)]
 pub struct ParedUpdateFunction {
     function: Bdd,
@@ -19,9 +20,19 @@ pub struct ParedUpdateFunction {
     par_bdd_vars: Vec<BddVariable>,
 }
 
+/// Parametrized update function in an explicit form, so iterating over
+/// all instantiated update fucntions is faster.
 pub type PUpdateFunExplicit = Vec<Bdd>;
 
 impl ParedUpdateFunction {
+    /// Creates new `ParedUpdateFunction`
+    ///
+    /// * `update_function` - The update function. It usually contains
+    ///     all the parametrizations.
+    /// * `unit_bdd` - Valid parametrizations of the network
+    /// * `context` - network's context
+    /// * `fn_update` - Corresponding `FnUpdate`, if not implicit
+    /// * `var_id` - Corresponding variable
     fn new(
         update_function: &Bdd,
         unit_bdd: &Bdd,
@@ -60,25 +71,36 @@ impl ParedUpdateFunction {
         }
     }
 
+    /// Get the update function.
+    ///
+    /// The returned bdd contains all valid parametrizations.
     pub fn get_function(&self) -> &Bdd {
         &self.function
     }
 
+    /// Get the valid parametrizations
     pub fn get_parametrizations(&self) -> &Bdd {
         &self.parametrizations
     }
 
+    /// Get the parametrization variables.
     pub fn get_parameters(&self) -> &[BddVariable] {
         &self.par_bdd_vars
     }
 
+    /// Restricted update function
+    ///
+    /// * `restriction` - Only `.get_parameters()` variables are taken
+    ///     into account
     pub fn restricted(&self, restriction: &BddValuation) -> Bdd {
         self.par_bdd_vars.iter()
             .fold(self.function.clone(),
                 |acc, &bdd_var| acc.var_restrict(bdd_var, restriction[bdd_var]))
     }
 
-    /// Colors has to be a subset of unit_bdd
+    /// Restricted valid parametrizations by `colors`.
+    ///
+    /// `colors` has to be a subset of the valid parametrizations.
     pub fn restricted_parametrizations(&self, colors: Bdd) -> Bdd {
         let support_set = self.function.support_set();
         colors.support_set().iter()
@@ -86,11 +108,16 @@ impl ParedUpdateFunction {
             .fold(colors, |acc, bdd_var| acc.var_project(*bdd_var))
     }
 
+    /// As well as the "unsafe" version, without the condition of being
+    /// a subset.
     pub fn restricted_parametrizations_safe(&self, restriction: Bdd) -> Bdd {
         self.parametrizations.and(
             &self.restricted_parametrizations(restriction))
     }
 
+    /// Computes the explicit form.
+    ///
+    /// * `colors` - used as in `restricted_parametrizations`.
     pub fn explicit_in(&self, colors: &Bdd, sync_graph: &SymbSyncGraph)
     -> PUpdateFunExplicit {
         self.restricted_parametrizations(colors.clone())
@@ -103,8 +130,10 @@ impl ParedUpdateFunction {
     }
 }
 
+/// Mapping a bdd-bariable to its index in symbolic context
 pub type VarIndex = HashMap<BddVariable, usize>;
 
+/// Symbolicaly stored graph of synchronuous semantics
 #[derive(Clone)]
 pub struct SymbSyncGraph {
     bn: BooleanNetwork,
@@ -118,6 +147,7 @@ pub struct SymbSyncGraph {
 }
 
 impl SymbSyncGraph {
+    /// Creates new `SymbSyncGraph` from a `BooleanNetwork`
     pub fn new(bn: BooleanNetwork) -> SymbSyncGraph {
         let extra_vars = bn.variables()
             .map(|var_id| (var_id, 1))
@@ -189,26 +219,35 @@ impl SymbSyncGraph {
         }
     }
 
+    /// Return underlying boolean network
     pub fn as_network(&self) -> &BooleanNetwork {
         &self.bn
     }
 
+    /// Return underlying symbolic context
     pub fn symbolic_context(&self) -> &SymbolicContext {
         &self.context
     }
 
+    /// Return parametrized update functions
+    ///
+    /// The order of variables in `BooleanNetwork` gives the order of
+    /// corresponding functions in the returned slice.
     pub fn get_pupdate_functions(&self) -> &[ParedUpdateFunction] {
         &self.pupdate_functions
     }
 
+    /// Get the mapping from bbd-variable to index
     pub fn get_var_index(&self) -> &VarIndex {
         &self.var_index
     }
 
+    /// All bdd-variables set to zero
     pub fn get_all_false(&self) -> &Bdd {
         &self.all_false_bdd
     }
 
+    /// `get_pupdate_functions()` mapped to the explicit form
     pub fn explicit_pupdate_functions(&self, colors: &Bdd)
     -> Vec<PUpdateFunExplicit> {
         self.pupdate_functions.iter()
