@@ -1,0 +1,141 @@
+html, body {
+    margin: 0;
+    box-sizing: border-box;
+    height: 100%;
+}
+
+.column {
+    float: left;
+    height: 100%;
+}
+
+.left {
+    width: 40%;
+}
+
+.right {
+    width: 40%;
+}
+
+.sidebar {
+    width: 20%;
+    background-color: rgb(240, 240, 240);
+    text-align: center;
+}
+
+input[type=button] {
+    margin-top: 1em;
+    margin-bottom: 1em;
+    padding-left: 1em;
+    padding-right: 1em;
+}
+
+.sidebarElem {
+    padding: 0.5em;
+}
+
+#connectionPort {
+    width: 6em;
+}
+
+#pbnFile {
+    width: 100%;
+}
+
+label[for=connectionPort] {
+    text-align: right;
+}
+
+#statusShow {
+    display: block;
+    padding: 0.5em;
+}
+
+.notConnected {
+    background-color: pink;
+    color: red;
+}
+
+.connected {
+    background-color: lightgreen;
+    color: green;
+}
+
+.computing {
+    background-color: yellow;
+    color: orange;
+}
+
+#info {
+    margin-top: 1em;
+}
+
+#info table {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#progressBar {
+    margin-bottom: 1em;
+}
+
+h3 {
+    text-align: center;
+}
+
+#decisionTree {
+    margin: 1em;
+    height: 100%;
+    text-align: center;
+}
+
+#tree {
+    border: 1px solid black;
+    height: 70%;
+}
+
+.var_bit {
+    font-family: monospace, monospace;
+}
+
+
+/** TABLES **/
+
+.two-color-table {
+    margin-right: auto;
+    margin-left: auto;
+    text-align: center;
+    border-spacing: 0;
+}
+
+.two-color-table thead {
+    display: block;
+    background-color: rgb(0, 0, 100);
+    color: white;
+}
+
+.two-color-table thead td {
+    padding-left: 0.8em;
+    padding-right: 0.8em;
+    padding-top: 0.3em;
+    padding-bottom: 0.3em;
+}
+
+.two-color-table tbody {
+    display: block;
+    height: 70vh;
+    overflow: auto;
+}
+
+.two-color-table tbody tr:nth-child(even) {
+    background-color: rgb(220, 220, 220);
+}
+
+.two-color-table tbody tr:nth-child(odd) {
+    background-color: rgb(240, 240, 240);
+}
+
+.two-color-table tbody tr:hover {
+    background-color: rgb(0, 0, 150);
+    color: white;
+}

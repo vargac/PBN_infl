@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+
+<title>PBNinfl</title>
+<meta charset="utf-8"/>
+<link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+
+<div id="status" class="column sidebar">
+    <h2>Status bar</h2>
+    <div class="sidebarElem">
+        <span id="statusShow" class="notConnected">Not connected</span>
+    </div>
+    <br>
+    <div id="port" class="sidebarElem">
+        <label for="connectionPort">Port: </label>
+        <input type="number" id="connectionPort" min="1024" max="65535">
+    </div>
+    <input id="connectButton" class="sidebarElem" type="button" value="Connect">
+    <div id="fileSelect" class="sidebarElem" hidden>
+        <label for="pbnFile">Select a file:</label>
+        <input type="file" id="pbnFile" name="myfile">
+    </div>
+    <div id="info" class="sidebarElem" hidden>
+        <strong>The model contains:</strong>
+        <table>
+            <tr>
+                <td align="right"><span id="varsCnt">0</span></td>
+                <td align="left">variables</td>
+            </tr>
+            <tr>
+                <td align="right"><span id="colorsCnt">0</span></td>
+                <td align="left">colors</td>
+            </tr>
+        </table>
+        <br>
+        <span id="selectedVar"></span>
+    </div>
+    <input id="startButton" class="sidebarElem" type="button" value="Start computation" hidden>
+</div>
+
+<div class="column left">
+    <div id="attractors" hidden>
+        <h3>Attractors</h3>
+        <table class="two-color-table">
+            <thead>
+                <tr>
+                    <td>id</td>
+                    <td>colors</td>
+                    <td>state</td>
+                    <td>entropy<sub>2</sub></td>
+                    <td>driver set</td>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="column right">
+    <div id="decisionTree" hidden>
+        <h3>Decision tree</h3>
+        <div id="tree"></div>
+        <input id="layoutButton" type="button" value="Reset layout">
+    </div>
+</div>
+
+
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script src="clickableTable.js"></script>
+<script src="attractors.js"></script>
+<script src="decisionTree.js"></script>
+<script src="client.js"></script>
+
+</body>
+</html>
