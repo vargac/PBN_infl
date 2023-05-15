@@ -2,7 +2,7 @@
 
 This repository contains two tools for analysis of partially specified
 Boolean networks (PBNs). The tools require the input format .aeon. Some
-models are in the `models` folder. You can find more models
+models are in the `models` folder, they are mainly taken from
 [here](https://github.com/sybila/biodivine-boolean-models).
 The codebase is written in Rust. To compile the source files,
 navigate to the `pbn_ibmfa` directory and run `cargo run --release`.
